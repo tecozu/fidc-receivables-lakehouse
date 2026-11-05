@@ -1,0 +1,40 @@
+name: fidc_lakehouse
+version: "0.1.0"
+profile: fidc_lakehouse
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Reference date of the valuation. The pipeline always passes it explicitly.
+  as_of_date: "2026-03-31"
+
+models:
+  fidc_lakehouse:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      # Ephemeral on purpose: these models depend on var('as_of_date'). As views they
+      # would freeze the date of the last full build; ephemeral CTEs are re-compiled
+      # into fct_daily_portfolio on every daily run.
+      +materialized: ephemeral
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  fidc_lakehouse:
+    +schema: reference
+    b3_holidays:
+      +column_types: { holiday_date: date }
+    provision_buckets:
+      +column_types: { valid_from: date, valid_to: date, provision_rate: "decimal(9,6)" }
+    funds:
+      +column_types: { inception_date: date }
+
+flags:
+  require_generic_test_arguments_property: true

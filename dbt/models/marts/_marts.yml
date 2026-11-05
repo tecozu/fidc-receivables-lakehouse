@@ -1,0 +1,88 @@
+version: 2
+
+models:
+  - name: dim_calendar
+    description: Calendar with B3 business-day flag and running business-day counter.
+    columns:
+      - name: calendar_date
+        data_tests: [unique, not_null]
+
+  - name: dim_fund
+    columns:
+      - name: fund_code
+        data_tests: [unique, not_null]
+
+  - name: dim_counterparty
+    description: Sellers, originators and debtors (one row per taxpayer ID).
+    columns:
+      - name: counterparty_doc
+        data_tests: [unique, not_null]
+
+  - name: dim_receivable
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [fund_code, receivable_id]
+
+  - name: fct_receivable_events
+    description: Append-only event ledger (acquisitions, partial/full settlements, cancellations).
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: event_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [ACQUISITION, FULL, PARTIAL, CANCELLATION]
+
+  - name: fct_daily_portfolio
+    description: >
+      Daily valuation snapshot of every open receivable: present value at the
+      purchase-implied rate (252 business-day basis), loss provision and net value.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [as_of_date, fund_code, receivable_id]
+      - expression_is_true:
+          arguments:
+            expression: "present_value <= outstanding_amount + 0.01"
+      - expression_is_true:
+          arguments:
+            expression: "provision_amount between 0 and present_value"
+      - expression_is_true:
+          arguments:
+            expression: "abs(present_value - provision_amount - net_value) < 0.01"
+    columns:
+      - name: provision_bucket
+        description: Null would mean no provision policy covers the date -> must never happen.
+        data_tests: [not_null]
+      - name: discount_rate
+        data_tests:
+          - expression_is_true:
+              arguments:
+                expression: "discount_rate between 0 and 1"
+      - name: lifecycle_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [OPEN, PARTIALLY_SETTLED]
+
+  - name: rpt_fund_daily_summary
+    description: Fund-level daily totals (portfolio value, provisions, overdue ratio).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [as_of_date, fund_code]
+
+  - name: rpt_ingestion_quality
+    description: One row per landing file with acceptance/rejection counts and reasons.
+
+  - name: rpt_orphan_settlements
+    description: Settlements that do not match any receivable held by the fund.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "false"
+          config:
+            severity: warn
+            warn_if: ">0"

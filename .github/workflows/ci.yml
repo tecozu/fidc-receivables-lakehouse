@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Unit tests
+        run: pytest -q
+
+      - name: End-to-end pipeline (generate -> ingest -> dbt build + tests, 2 months)
+        run: |
+          fidc generate --start 2026-01-02 --end 2026-02-27
+          fidc backfill --start 2026-01-02 --end 2026-02-27
+
+      - name: Idempotency check (re-running a date loads nothing new and still passes)
+        run: fidc run --as-of 2026-02-27

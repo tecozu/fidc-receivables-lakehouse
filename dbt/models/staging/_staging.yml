@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: stg_file_ledger
+    columns:
+      - name: file_id
+        data_tests: [unique, not_null]
+
+  - name: stg_acquisitions
+    description: Latest valid version of every purchased receivable.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [fund_code, receivable_id]
+      - expression_is_true:
+          arguments:
+            expression: "purchase_price <= face_value"
+      - expression_is_true:
+          arguments:
+            expression: "due_date > acquisition_date"
+    columns:
+      - name: fund_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('funds')
+                field: fund_code
+      - name: face_value
+        data_tests: [not_null, non_negative]
+      - name: debtor_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [INDIVIDUAL, COMPANY]
+
+  - name: stg_settlements
+    columns:
+      - name: settlement_id
+        data_tests: [unique, not_null]
+      - name: settlement_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [FULL, PARTIAL, CANCELLATION]
+      - name: amount_paid
+        data_tests: [non_negative]

@@ -1,0 +1,15 @@
+# Fund registry: one entry per fund. Adding a fund = adding an entry here
+# (and a row in dbt/seeds/funds.csv). Each event type points to a parser layout,
+# so funds whose administrators send different file formats can coexist.
+funds:
+  - code: ALPHA
+    name: Alpha Trade Receivables Fund
+    events:
+      acquisitions: { layout: csv_br_v1 }
+      settlements: { layout: csv_br_v1 }
+
+  - code: BETA
+    name: Beta Consumer Credit Fund
+    events:
+      acquisitions: { layout: csv_br_v1 }
+      settlements: { layout: csv_br_v1 }

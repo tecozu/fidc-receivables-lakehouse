@@ -1,0 +1,25 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Data & warehouse (always regenerated from the seeded generator)
+data/
+*.duckdb
+*.duckdb.wal
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+logs/
+
+# Env / editors
+.env
+.vscode/
+.idea/
+.ipynb_checkpoints/
+dbt/.user.yml
