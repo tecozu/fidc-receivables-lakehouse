@@ -12,7 +12,7 @@ with ledger as (
         on  e.fund_code = p.fund_code
         and e.receivable_id = p.receivable_id
         and e.event_date <= p.as_of_date
-    group by all
+    group by p.as_of_date, p.fund_code, p.receivable_id, p.outstanding_amount
 )
 
 select *

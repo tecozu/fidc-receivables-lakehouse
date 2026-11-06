@@ -36,4 +36,6 @@ select
         else 'OPEN'
     end                                        as lifecycle_status
 from per_receivable p
-join {{ ref('dim_receivable') }} r using (fund_code, receivable_id)
+join {{ ref('dim_receivable') }} r
+    on  r.fund_code = p.fund_code
+    and r.receivable_id = p.receivable_id

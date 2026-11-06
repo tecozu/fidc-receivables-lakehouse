@@ -3,7 +3,7 @@ with latest_files as (
 )
 
 select
-    md5(concat_ws('|', s.file_id, s.row_number)) as settlement_id,
+    {{ surrogate_key(['s.file_id', 's.row_number']) }} as settlement_id,
     s.fund_code,
     s.receivable_id,
     s.settlement_date,
@@ -11,4 +11,4 @@ select
     s.amount_paid,
     s.file_id
 from {{ source('raw', 'settlements') }} s
-join latest_files using (file_id)
+join latest_files l on l.file_id = s.file_id

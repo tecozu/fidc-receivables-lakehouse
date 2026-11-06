@@ -13,7 +13,7 @@ with roles as (
 
 select
     doc                                          as counterparty_doc,
-    arg_max(name, acquisition_date)              as counterparty_name,  -- most recent name
+    max_by(name, acquisition_date)               as counterparty_name,  -- most recent name
     case when length(doc) = 11 then 'INDIVIDUAL' else 'COMPANY' end as counterparty_type,
     bool_or(role = 'SELLER')                     as is_seller,
     bool_or(role = 'ORIGINATOR')                 as is_originator,

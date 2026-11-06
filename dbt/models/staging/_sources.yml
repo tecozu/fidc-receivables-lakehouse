@@ -1,7 +1,10 @@
 version: 2
 
+# Locally these are DuckDB schemas written by `fidc ingest`. On Athena they are Glue
+# databases over Parquet files the same ingestion writes to S3.
 sources:
   - name: raw
+    schema: "{{ 'fidc_raw' if target.type == 'athena' else 'raw' }}"
     description: Rows accepted by the Python ingestion quality gate (typed, with lineage).
     tables:
       - name: acquisitions
@@ -10,6 +13,7 @@ sources:
         description: Payments and cancellations received for those receivables.
 
   - name: meta
+    schema: "{{ 'fidc_meta' if target.type == 'athena' else 'meta' }}"
     description: Ingestion control tables written by `fidc_lakehouse.ingest`.
     tables:
       - name: file_ledger

@@ -5,18 +5,23 @@ with latest_files as (
 source as (
     select a.*
     from {{ source('raw', 'acquisitions') }} a
-    join latest_files using (file_id)
+    join latest_files l on l.file_id = a.file_id
 ),
 
 -- The same receivable can appear in more than one file (e.g. a corrected re-send
 -- under a new name). The most recently ingested occurrence wins.
-deduplicated as (
-    select *
+ranked as (
+    select
+        *,
+        row_number() over (
+            partition by fund_code, receivable_id
+            order by file_id desc, row_number desc
+        ) as occurrence_rank
     from source
-    qualify row_number() over (
-        partition by fund_code, receivable_id
-        order by file_id desc, row_number desc
-    ) = 1
+),
+
+deduplicated as (
+    select * from ranked where occurrence_rank = 1
 )
 
 select
@@ -25,13 +30,13 @@ select
     contract_id,
     receivable_type,
     seller_name,
-    regexp_replace(seller_doc, '\D', '', 'g')     as seller_doc,
+    {{ only_digits('seller_doc') }}     as seller_doc,
     originator_name,
-    regexp_replace(originator_doc, '\D', '', 'g') as originator_doc,
+    {{ only_digits('originator_doc') }} as originator_doc,
     debtor_name,
-    regexp_replace(debtor_doc, '\D', '', 'g')     as debtor_doc,
-    case when length(regexp_replace(debtor_doc, '\D', '', 'g')) = 11
-         then 'INDIVIDUAL' else 'COMPANY' end    as debtor_type,
+    {{ only_digits('debtor_doc') }}     as debtor_doc,
+    case when length({{ only_digits('debtor_doc') }}) = 11
+         then 'INDIVIDUAL' else 'COMPANY' end as debtor_type,
     issue_date,
     due_date,
     acquisition_date,

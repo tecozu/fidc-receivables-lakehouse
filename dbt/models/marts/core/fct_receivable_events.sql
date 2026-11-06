@@ -3,7 +3,7 @@
 -- balance at any date is simply sum(balance_delta) up to that date.
 with acquisitions as (
     select
-        md5(concat_ws('|', fund_code, receivable_id, 'ACQUISITION')) as event_id,
+        {{ surrogate_key(['fund_code', 'receivable_id', "'ACQUISITION'"]) }} as event_id,
         fund_code,
         receivable_id,
         acquisition_date       as event_date,
@@ -27,7 +27,9 @@ settlements as (
     from {{ ref('stg_settlements') }} s
     -- settlements for receivables that never made it into the fund (e.g. their
     -- acquisition row was rejected) are excluded here and reported in rpt_orphan_settlements
-    join {{ ref('stg_acquisitions') }} a using (fund_code, receivable_id)
+    join {{ ref('stg_acquisitions') }} a
+        on  a.fund_code = s.fund_code
+        and a.receivable_id = s.receivable_id
     where s.settlement_date >= a.acquisition_date
 )
 

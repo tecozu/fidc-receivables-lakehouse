@@ -16,5 +16,7 @@ expected as (
 
 select e.*
 from expected e
-left join {{ ref('rpt_fund_daily_summary') }} s using (fund_code, as_of_date)
+left join {{ ref('rpt_fund_daily_summary') }} s
+    on  s.fund_code = e.fund_code
+    and s.as_of_date = e.as_of_date
 where s.as_of_date is null

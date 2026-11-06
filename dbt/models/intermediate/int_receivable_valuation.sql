@@ -47,7 +47,7 @@ with_policy as (
         b.bucket                as provision_bucket,
         b.provision_rate
     from valued v
-    join {{ ref('dim_fund') }} f using (fund_code)
+    join {{ ref('dim_fund') }} f on f.fund_code = v.fund_code
     left join {{ ref('provision_buckets') }} b
         on  b.provision_policy_id = f.provision_policy_id
         and v.days_overdue between b.min_days_overdue and b.max_days_overdue
