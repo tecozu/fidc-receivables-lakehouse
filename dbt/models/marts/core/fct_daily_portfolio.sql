@@ -2,15 +2,15 @@
 -- Every run of a date fully replaces that date's snapshot (safe reprocessing after
 -- corrected files):
 --   * DuckDB (dev/CI): native incremental delete+insert on as_of_date.
---   * Athena (prod):   Iceberg table partitioned by as_of_date; a pre-hook deletes the
---                      reference date, then the new rows are appended.
-{% if target.type == 'athena' %}
+--   * Databricks (prod): Delta replace_where on the reference date, an atomic overwrite
+--                        of just that date (rows no longer open disappear too).
+{% if target.type == 'databricks' %}
 {{ config(
     materialized='incremental',
-    table_type='iceberg',
-    incremental_strategy='append',
-    partitioned_by=['as_of_date'],
-    pre_hook="{{ delete_reference_date() }}",
+    file_format='delta',
+    incremental_strategy='replace_where',
+    incremental_predicates=["as_of_date = date '" ~ var('as_of_date') ~ "'"],
+    liquid_clustered_by=['as_of_date'],
     on_schema_change='append_new_columns'
 ) }}
 {% else %}

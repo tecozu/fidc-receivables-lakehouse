@@ -1,11 +1,11 @@
 version: 2
 
-# Locally these are DuckDB schemas written by `fidc ingest`. On Athena they are Glue
-# databases over Parquet files the same ingestion writes to S3.
+# Locally these are DuckDB schemas written by `fidc ingest`. On Databricks they are
+# Delta tables in Unity Catalog, written by the PySpark ingestion.
 sources:
   - name: raw
-    schema: "{{ 'fidc_raw' if target.type == 'athena' else 'raw' }}"
-    description: Rows accepted by the Python ingestion quality gate (typed, with lineage).
+    schema: "{{ 'fidc_raw' if target.type == 'databricks' else 'raw' }}"
+    description: Rows accepted by the ingestion quality gate (typed, with lineage).
     tables:
       - name: acquisitions
         description: Receivables purchased by each fund.
@@ -13,8 +13,8 @@ sources:
         description: Payments and cancellations received for those receivables.
 
   - name: meta
-    schema: "{{ 'fidc_meta' if target.type == 'athena' else 'meta' }}"
-    description: Ingestion control tables written by `fidc_lakehouse.ingest`.
+    schema: "{{ 'fidc_meta' if target.type == 'databricks' else 'meta' }}"
+    description: Ingestion control tables written by the ingestion.
     tables:
       - name: file_ledger
         description: One row per ingested file version (SHA-256 fingerprint).

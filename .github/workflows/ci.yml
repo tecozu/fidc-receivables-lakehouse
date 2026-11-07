@@ -36,17 +36,11 @@ jobs:
       - name: Idempotency check (re-running a date loads nothing new and still passes)
         run: fidc run --as-of 2026-02-27
 
-      - name: Athena dialect check (compile for prod against a mocked AWS, parse as Trino)
+      - name: Databricks dialect check (compile for prod offline, parse as Databricks SQL)
         env:
           FIDC_DBT_TARGET: prod
-          AWS_ACCESS_KEY_ID: testing
-          AWS_SECRET_ACCESS_KEY: testing
-          AWS_REGION: us-east-1
-          AWS_ENDPOINT_URL: http://127.0.0.1:5055
         run: |
-          uv pip install --system -e ".[aws]" "moto[server]" sqlglot
-          moto_server -p 5055 &
-          sleep 3
+          uv pip install --system -e ".[databricks]" sqlglot
           rm -rf dbt/target
-          dbt compile --no-introspect --project-dir dbt --profiles-dir dbt --vars '{as_of_date: "2026-02-27"}'
-          python scripts/check_athena_sql.py
+          dbt compile --no-introspect --no-populate-cache --project-dir dbt --profiles-dir dbt --vars '{as_of_date: "2026-02-27"}'
+          python scripts/check_prod_sql.py

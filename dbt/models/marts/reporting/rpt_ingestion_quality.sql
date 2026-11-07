@@ -15,7 +15,7 @@ select
     l.accepted_count,
     l.rejected_count,
     cast(l.rejected_count as double) / nullif(l.row_count, 0)   as rejection_rate,
-    {{ string_agg_ordered("r.reason || ' (' || cast(r.n as varchar) || ')'", ', ', 'r.n desc') }}
+    {{ string_agg_ordered("r.reason || ' (' || cast(r.n as string) || ')'", ', ', 'r.n desc') }}
                                                                 as rejection_reasons,
     l.ingested_at
 from {{ ref('stg_file_ledger') }} l

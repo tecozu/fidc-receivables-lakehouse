@@ -7,16 +7,13 @@ fidc_lakehouse:
       path: "{{ env_var('FIDC_DUCKDB_PATH', '../data/warehouse.duckdb') }}"
       threads: 4
 
-    # Production: Amazon Athena over the S3 lake, tables registered in the Glue catalog.
-    # No credentials here: boto3 picks them up from the environment (an SSO profile
-    # locally, the ECS task role in AWS).
+    # Production: a Databricks SQL warehouse over Delta tables in Unity Catalog.
+    # Everything comes from the environment; the token never lives in the repository.
     prod:
-      type: athena
-      database: awsdatacatalog
+      type: databricks
+      catalog: "{{ env_var('FIDC_DATABRICKS_CATALOG', 'workspace') }}"
       schema: fidc
-      region_name: "{{ env_var('AWS_REGION', 'us-east-1') }}"
-      work_group: "{{ env_var('FIDC_ATHENA_WORKGROUP', 'fidc') }}"
-      s3_staging_dir: "{{ env_var('FIDC_ATHENA_RESULTS_URI', 's3://placeholder-athena-results/') }}"
-      s3_data_dir: "{{ env_var('FIDC_LAKE_URI', 's3://placeholder-lake/') }}"
-      s3_data_naming: schema_table_unique
-      threads: 4
+      host: "{{ env_var('DATABRICKS_HOST', 'placeholder.cloud.databricks.com') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH', '/sql/1.0/warehouses/placeholder') }}"
+      token: "{{ env_var('DBT_ENV_SECRET_DATABRICKS_TOKEN', 'placeholder') }}"
+      threads: 2

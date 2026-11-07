@@ -2,8 +2,8 @@
   Brazilian fixed-income convention: rates are annual, compounded over 252
   business days.  price = face / (1 + rate) ^ (business_days / 252)
 
-  Everything is cast to double on purpose: on Trino/Athena `252.0` is a DECIMAL
-  literal, and decimal division would silently round the exponent.
+  Everything is cast to double on purpose: `252.0` is a DECIMAL literal on several
+  engines, and decimal division could silently round the exponent.
 #}
 
 {# Annual rate implied by buying `face` for `price` with `business_days` to maturity. #}

@@ -18,7 +18,7 @@ terms as (
         p.*,
         due.business_day_seq - acq.business_day_seq                  as term_business_days,
         greatest(due.business_day_seq - cur.business_day_seq, 0)     as remaining_business_days,
-        greatest(date_diff('day', p.due_date, p.as_of_date), 0)      as days_overdue
+        greatest({{ days_between('p.due_date', 'p.as_of_date') }}, 0) as days_overdue
     from open_positions p
     join calendar acq on acq.calendar_date = p.acquisition_date
     join calendar due on due.calendar_date = p.due_date
