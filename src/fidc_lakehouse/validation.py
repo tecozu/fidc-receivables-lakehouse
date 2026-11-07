@@ -55,6 +55,17 @@ def _split(
     return typed[~bad].copy(), rejects
 
 
+def _conflicting_ids(raw: pd.DataFrame) -> pd.Series:
+    """Rows whose receivable ID appears in the file with different contents.
+
+    No row can be trusted over the other, so all of them are rejected. This rule
+    doesn't depend on row order, so engines without line numbers apply it identically.
+    """
+    distinct = raw.drop_duplicates()
+    ids = distinct["receivable_id"][distinct["receivable_id"].duplicated(keep=False)]
+    return raw["receivable_id"].isin(ids)
+
+
 def validate_acquisitions(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     t = raw.copy()
     for col in ("issue_date", "due_date", "acquisition_date"):
@@ -70,7 +81,9 @@ def validate_acquisitions(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame
         "purchase_price_out_of_range": ~((t["purchase_price"] > 0)
                                          & (t["purchase_price"] <= t["face_value"])),
         "due_before_acquisition": ~(t["due_date"] > t["acquisition_date"]),
-        "duplicate_in_file": raw["receivable_id"].duplicated(keep="first"),
+        "conflicting_duplicate_in_file": _conflicting_ids(raw),
+        # Exact copies are interchangeable: keep one, reject the rest.
+        "duplicate_in_file": raw.duplicated(keep="first"),
     }  # fmt: skip
     return _split(raw, t, rules)
 

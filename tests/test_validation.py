@@ -65,6 +65,42 @@ def test_rejected_rows_keep_the_reason_the_payload_and_their_position():
     assert payload["debtor_name"] == "João"
 
 
+def test_exact_copies_keep_one_row():
+    content = _file(ACQUISITION_HEADER, _acquisition("X-1"), _acquisition("X-1"))
+
+    result = process_file(content, _fund(), "acquisitions")
+
+    assert result.accepted["row_number"].tolist() == [1]
+    assert result.rejects["reason"].tolist() == ["duplicate_in_file"]
+
+
+def test_conflicting_rows_with_the_same_id_are_all_rejected():
+    content = _file(
+        ACQUISITION_HEADER,
+        _acquisition("X-1", face="1000,50"),
+        _acquisition("X-2"),
+        _acquisition("X-1", face="2000,00"),
+        _acquisition("X-1", face="1000,50"),  # an exact copy of a conflicting row
+    )
+
+    result = process_file(content, _fund(), "acquisitions")
+
+    assert result.accepted["receivable_id"].tolist() == ["X-2"]
+    assert result.rejects["row_number"].tolist() == [1, 3, 4]
+    assert set(result.rejects["reason"]) == {"conflicting_duplicate_in_file"}
+
+
+def test_a_conflicting_row_that_breaks_another_rule_reports_that_rule():
+    content = _file(ACQUISITION_HEADER, _acquisition("X-1"), _acquisition("X-1", face="-1,00"))
+
+    result = process_file(content, _fund(), "acquisitions")
+
+    assert result.rejects["reason"].tolist() == [
+        "conflicting_duplicate_in_file",
+        "non_positive_face_value",
+    ]
+
+
 def test_settlements_use_their_own_rules():
     content = _file(
         "receivable_id;settlement_date;settlement_type;amount_paid",
