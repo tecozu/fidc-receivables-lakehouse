@@ -120,11 +120,12 @@ the reference date can never be baked into a stale view.
 ## Project layout
 
 ```
-config/funds.yaml            fund registry -> layout per event type
 src/fidc_lakehouse/
+  funds.yaml                 fund registry -> layout per event type
   generate.py                seeded synthetic data (Faker), with injected errors
   parsers.py                 layout registry (add a layout to onboard a new administrator)
-  ingest.py                  file ledger, validation, transactional load
+  validation.py              quality gate: row-level rules, shared by both engines
+  ingest.py                  local load into DuckDB: file ledger, transactional load
   business_calendar.py       B3 holidays (Easter-based rules) and business-day math
   pipeline.py / cli.py       daily run, backfill, demo
 dbt/

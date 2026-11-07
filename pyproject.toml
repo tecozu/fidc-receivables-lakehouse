@@ -1,23 +1,26 @@
 [project]
 name = "fidc-lakehouse"
 version = "0.1.0"
-description = "Daily valuation pipeline for a Brazilian receivables fund (FIDC): idempotent file ingestion, DuckDB, dbt and data contracts."
+description = "Daily valuation lakehouse for a Brazilian receivables fund (FIDC) on Databricks: Auto Loader, Lakeflow, dbt and Unity Catalog, with DuckDB for local runs and CI."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Renato Araujo" }]
+# Only what the Databricks pipeline needs at runtime, because it installs this wheel.
 dependencies = [
-    "duckdb>=1.1",
-    "pandas>=2.2",
+    "pandas>=2.0",
     "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+local = [
+    "duckdb>=1.1",
     "faker>=30.0",
     "dbt-core>=1.10,<2.0",
     "dbt-duckdb>=1.9",
 ]
-
-[project.optional-dependencies]
 databricks = ["dbt-databricks>=1.10"]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+dev = ["fidc-lakehouse[local]", "pytest>=8.0", "ruff>=0.6"]
 
 [project.scripts]
 fidc = "fidc_lakehouse.cli:main"

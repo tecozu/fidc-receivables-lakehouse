@@ -10,7 +10,7 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DBT_DIR = PROJECT_ROOT / "dbt"
-CONFIG_DIR = PROJECT_ROOT / "config"
+FUNDS_FILE = Path(__file__).with_name("funds.yaml")  # packaged, so the wheel carries it too
 
 
 def landing_dir() -> Path:
@@ -28,7 +28,7 @@ class Fund:
     layouts: dict[str, str]  # event type -> parser layout
 
 
-def load_funds(path: Path = CONFIG_DIR / "funds.yaml") -> list[Fund]:
+def load_funds(path: Path = FUNDS_FILE) -> list[Fund]:
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
     return [

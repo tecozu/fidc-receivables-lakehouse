@@ -3,7 +3,8 @@ from datetime import date
 import duckdb
 import pandas as pd
 
-from fidc_lakehouse.ingest import ingest, validate_acquisitions
+from fidc_lakehouse.ingest import ingest
+from fidc_lakehouse.validation import validate_acquisitions
 
 
 def _count(db, table):

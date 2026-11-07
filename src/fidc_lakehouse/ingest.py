@@ -14,21 +14,14 @@ Guarantees:
 from __future__ import annotations
 
 import hashlib
-import json
-import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 import duckdb
-import pandas as pd
 
 from fidc_lakehouse.config import Fund
-from fidc_lakehouse.documents import is_valid_document
-from fidc_lakehouse.parsers import get_parser
-
-EVENT_TYPES = ("acquisitions", "settlements")
-FILE_PATTERN = re.compile(r"^(?P<event>[a-z]+)_(?P<date>\d{4}-\d{2}-\d{2})\.csv$")
+from fidc_lakehouse.validation import EVENT_TYPES, FILE_PATTERN, process_file
 
 DDL = """
 create schema if not exists raw;
@@ -100,81 +93,6 @@ def init_warehouse(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(DDL)
 
 
-def sha256_of(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 16), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-# --------------------------------------------------------------------------- validation
-def _decimal(s: pd.Series) -> pd.Series:
-    return pd.to_numeric(s.str.strip().str.replace(",", ".", regex=False), errors="coerce")
-
-
-def _date(s: pd.Series) -> pd.Series:
-    # Kept as datetime64 (NaT-safe comparisons); DuckDB casts to DATE on insert.
-    return pd.to_datetime(s.str.strip(), format="%d/%m/%Y", errors="coerce")
-
-
-def _split(
-    raw: pd.DataFrame, typed: pd.DataFrame, rules: dict[str, pd.Series]
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Apply `rules` (reason -> boolean mask of *invalid* rows). First failing rule wins."""
-    reason = pd.Series(pd.NA, index=raw.index, dtype="object")
-    for name, invalid in rules.items():
-        reason = reason.where(reason.notna() | ~invalid.fillna(True), name)
-    bad = reason.notna().to_numpy()
-    rejects = pd.DataFrame(
-        {
-            "row_number": raw.index[bad] + 1,
-            "reason": reason[bad].to_numpy(),
-            "payload": [json.dumps(r, ensure_ascii=False) for r in raw[bad].to_dict("records")],
-        }
-    )
-    return typed[~bad].copy(), rejects
-
-
-def validate_acquisitions(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    t = raw.copy()
-    for col in ("issue_date", "due_date", "acquisition_date"):
-        t[col] = _date(raw[col])
-    for col in ("face_value", "purchase_price"):
-        t[col] = _decimal(raw[col])
-    rules = {
-        "missing_receivable_id": raw["receivable_id"].str.strip() == "",
-        "invalid_debtor_doc": ~raw["debtor_doc"].map(is_valid_document),
-        "invalid_seller_doc": ~raw["seller_doc"].map(is_valid_document),
-        "invalid_date": t[["due_date", "acquisition_date"]].isna().any(axis=1),
-        "non_positive_face_value": ~(t["face_value"] > 0),
-        "purchase_price_out_of_range": ~((t["purchase_price"] > 0)
-                                         & (t["purchase_price"] <= t["face_value"])),
-        "due_before_acquisition": ~(t["due_date"] > t["acquisition_date"]),
-        "duplicate_in_file": raw["receivable_id"].duplicated(keep="first"),
-    }  # fmt: skip
-    return _split(raw, t, rules)
-
-
-def validate_settlements(raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    t = raw.copy()
-    t["settlement_date"] = _date(raw["settlement_date"])
-    t["amount_paid"] = _decimal(raw["amount_paid"])
-    rules = {
-        "missing_receivable_id": raw["receivable_id"].str.strip() == "",
-        "invalid_date": t["settlement_date"].isna(),
-        "unknown_settlement_type": ~raw["settlement_type"].isin(
-            ["FULL", "PARTIAL", "CANCELLATION"]
-        ),
-        "negative_amount": ~(t["amount_paid"] >= 0),
-    }
-    return _split(raw, t, rules)
-
-
-VALIDATORS = {"acquisitions": validate_acquisitions, "settlements": validate_settlements}
-
-
-# --------------------------------------------------------------------------- loading
 def discover_files(landing: Path, funds: list[Fund], up_to: date | None = None):
     """Yield (fund, event_type, file_date, path) in chronological order."""
     found = []
@@ -194,12 +112,13 @@ def discover_files(landing: Path, funds: list[Fund], up_to: date | None = None):
 def ingest_file(
     con: duckdb.DuckDBPyConnection, fund: Fund, event: str, file_date: date, path: Path
 ) -> FileResult:
-    digest = sha256_of(path)
+    content = path.read_bytes()
+    digest = hashlib.sha256(content).hexdigest()
     if con.execute("select 1 from meta.file_ledger where sha256 = ?", [digest]).fetchone():
         return FileResult(path, "skipped_duplicate")
 
-    raw = get_parser(fund.layouts[event])(path)
-    accepted, rejects = VALIDATORS[event](raw)
+    processed = process_file(content, fund, event)
+    accepted, rejects = processed.accepted, processed.rejects
 
     con.begin()
     try:
@@ -209,13 +128,10 @@ def ingest_file(
                    sha256, row_count, accepted_count, rejected_count)
                values (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [file_id, fund.code, event, path.name, file_date, digest,
-             len(raw), len(accepted), len(rejects)],
+             processed.rows, len(accepted), len(rejects)],
         )  # fmt: skip
         if len(accepted):
-            accepted = accepted.assign(
-                fund_code=fund.code, file_id=file_id, row_number=accepted.index + 1
-            )
-            con.register("accepted_df", accepted)
+            con.register("accepted_df", accepted.assign(file_id=file_id))
             con.execute(f"insert into raw.{event} by name select * from accepted_df")
             con.unregister("accepted_df")
         if len(rejects):
@@ -226,7 +142,7 @@ def ingest_file(
     except Exception:
         con.rollback()
         raise
-    return FileResult(path, "loaded", len(raw), len(accepted), len(rejects))
+    return FileResult(path, "loaded", processed.rows, len(accepted), len(rejects))
 
 
 def ingest(
