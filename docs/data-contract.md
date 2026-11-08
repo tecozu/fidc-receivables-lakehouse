@@ -53,6 +53,9 @@ A layout declares one of two modes:
   repeating it with different contents is a conflict.
 - **Derived:** the file has none, so the pipeline builds one as a hash of
   `fund_code`, `installment_id`, `settlement_date`, `settlement_type` and `amount_paid`.
+  The fields are trimmed and joined with `|` in that order. The amount is written with
+  exactly two decimals, parsed as an exact decimal (never a float) and rounded half up,
+  so `10,555` and `10,56` give the same ID in every engine.
   The same payment always gets the same ID, whatever file or position it arrives in, so a
   corrected file keeps the IDs of the rows that did not change.
 

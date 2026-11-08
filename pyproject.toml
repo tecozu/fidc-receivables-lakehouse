@@ -20,7 +20,10 @@ local = [
     "dbt-duckdb>=1.9",
 ]
 databricks = ["dbt-databricks>=1.10"]
-dev = ["fidc-lakehouse[local]", "pytest>=8.0", "ruff>=0.6"]
+# Local Spark (needs Java 17 or 21) for the pandas/PySpark parity test. Not a runtime
+# dependency: Databricks provides Spark, so the pipeline wheel stays light.
+spark = ["pyspark>=4.0,<5"]
+dev = ["fidc-lakehouse[local,spark]", "pytest>=8.0", "ruff>=0.6"]
 
 [project.scripts]
 fidc = "fidc_lakehouse.cli:main"

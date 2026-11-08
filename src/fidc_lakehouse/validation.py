@@ -12,6 +12,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import pandas as pd
 
@@ -69,16 +70,34 @@ def _conflicting_ids(rows: pd.DataFrame, key: str) -> pd.Series:
     return rows[key].isin(ids)
 
 
+def _cents(text: object) -> str:
+    """An amount as text with exactly two decimals, rounded half up; "" if unreadable.
+
+    Money is parsed as an exact decimal, never as a float: the float nearest to 10.555 is
+    10.55499..., which would round down and disagree with Spark's exact decimal.
+    """
+    if not isinstance(text, str):
+        return ""
+    try:
+        value = Decimal(text.strip().replace(",", "."))
+        if not value.is_finite():
+            return ""
+        rounded = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return ""
+    return "0.00" if rounded.is_zero() else str(rounded)  # no "-0.00"
+
+
 def derive_transaction_id(raw: pd.DataFrame, fund_code: str) -> pd.Series:
     """Build a settlement ID for layouts whose files don't carry one.
 
     SHA-256 of the fields that define a payment, joined with a separator so that
     ("1", "23,00") and ("12", "3,00") can't produce the same text. The same payment gets
     the same ID in any file and position, so a corrected file keeps the IDs of unchanged
-    rows. Field order and the two-decimal amount are part of the contract: the Spark
-    version must produce identical IDs.
+    rows. Field order, the separator and the amount in cents (rounded half up) are part of
+    the contract: the Spark version must produce identical IDs.
     """
-    amount = _decimal(raw["amount_paid"]).map(lambda x: "" if pd.isna(x) else f"{x:.2f}")
+    amount = raw["amount_paid"].map(_cents)
     joined = pd.Series(fund_code, index=raw.index, dtype="object").str.cat(
         [
             raw["installment_id"].str.strip(),
