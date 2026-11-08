@@ -4,6 +4,14 @@ resources:
       catalog_name: ${var.catalog}
       name: fidc_landing
       comment: Where the administrators' files arrive.
+    silver_schema:
+      catalog_name: ${var.catalog}
+      name: fidc_silver
+      comment: Rows that passed the quality gate, typed.
+    meta_schema:
+      catalog_name: ${var.catalog}
+      name: fidc_meta
+      comment: Rejected rows and the file ledger.
     bronze_schema:
       catalog_name: ${var.catalog}
       name: fidc_bronze

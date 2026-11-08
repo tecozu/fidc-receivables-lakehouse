@@ -8,9 +8,14 @@ resources:
       libraries:
         - file:
             path: ../pipelines/bronze.py
+        - file:
+            path: ../pipelines/silver.py
       environment:
         dependencies:
           - ../dist/*.whl
       configuration:
         fidc.funds: ${var.funds}
+        fidc.catalog: ${var.catalog}
+        fidc.silver_schema: ${resources.schemas.silver_schema.name}
+        fidc.meta_schema: ${resources.schemas.meta_schema.name}
         fidc.landing: /Volumes/${var.catalog}/${resources.schemas.landing_schema.name}/${resources.volumes.landing_volume.name}
