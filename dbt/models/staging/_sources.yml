@@ -1,10 +1,11 @@
 version: 2
 
 # Locally these are DuckDB schemas written by `fidc ingest`. On Databricks they are
-# Delta tables in Unity Catalog, written by the PySpark ingestion.
+# Delta tables in Unity Catalog, written by the Lakeflow pipeline. Both come from the
+# same Spark functions (src/fidc_lakehouse/spark_pipeline.py).
 sources:
-  - name: raw
-    schema: "{{ 'fidc_raw' if target.type == 'databricks' else 'raw' }}"
+  - name: silver
+    schema: "{{ 'fidc_silver' if target.type == 'databricks' else 'silver' }}"
     description: Rows accepted by the ingestion quality gate (typed, with lineage).
     tables:
       - name: acquisitions

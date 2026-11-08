@@ -32,19 +32,7 @@ from faker import Faker
 
 from fidc_lakehouse.business_calendar import BusinessCalendar
 from fidc_lakehouse.config import Fund
-from fidc_lakehouse.parsers import LAYOUTS_WITH_TRANSACTION_ID
-
-ACQUISITION_COLUMNS = [
-    "contract_id", "installment_id", "installment_number", "receivable_type",
-    "seller_name", "seller_doc", "originator_name", "originator_doc",
-    "debtor_name", "debtor_doc",
-    "issue_date", "due_date", "acquisition_date", "face_value", "purchase_price",
-]  # fmt: skip
-SETTLEMENT_COLUMNS = ["installment_id", "settlement_date", "settlement_type", "amount_paid"]
-# Layouts with a provider payment ID carry one more column.
-SETTLEMENT_COLUMNS_WITH_TRANSACTION_ID = [
-    "installment_id", "transaction_id", "settlement_date", "settlement_type", "amount_paid",
-]  # fmt: skip
+from fidc_lakehouse.layouts import ACQUISITION_COLUMNS, get_layout
 
 RECEIVABLE_TYPES = ["TRADE_BILL", "SERVICE_BILL", "CREDIT_NOTE", "PROMISSORY_NOTE"]
 PROFILES = ["on_time", "late", "partial_then_full", "default", "cancelled"]
@@ -77,7 +65,8 @@ class FundSimulator:
         self.contract_counter = 0
         self.installment_counter = 0
         self.transaction_counter = 0
-        self.provider_transaction_id = fund.layouts["settlements"] in LAYOUTS_WITH_TRANSACTION_ID
+        self.settlement_layout = get_layout(fund.layouts["settlements"])
+        self.provider_transaction_id = self.settlement_layout.has_transaction_id("settlements")
         # Each fund buys from a small set of sellers/originators and a large set of debtors.
         self.sellers = [(fake.company(), fake.cnpj()) for _ in range(8)]
         self.originators = [(fake.company(), fake.cnpj()) for _ in range(3)]
@@ -88,10 +77,8 @@ class FundSimulator:
         self.schedule: dict[date, list[dict]] = defaultdict(list)
 
     @property
-    def settlement_columns(self) -> list[str]:
-        if self.provider_transaction_id:
-            return SETTLEMENT_COLUMNS_WITH_TRANSACTION_ID
-        return SETTLEMENT_COLUMNS
+    def settlement_columns(self) -> tuple[str, ...]:
+        return self.settlement_layout.columns["settlements"]
 
     def _new_contract(self, day: date) -> list[dict]:
         """One contract bought on `day`, as one row per installment."""
@@ -216,10 +203,10 @@ class FundSimulator:
         return acquisitions, settlements, errors + settlement_errors
 
 
-def _write(path: Path, columns: list[str], rows: list[dict]) -> None:
+def _write(path: Path, columns: tuple[str, ...], rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=columns, delimiter=";", extrasaction="ignore")
+        w = csv.DictWriter(f, fieldnames=list(columns), delimiter=";", extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
 

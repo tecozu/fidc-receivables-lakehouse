@@ -1,7 +1,6 @@
+import csv
 import hashlib
 from datetime import date
-
-import pandas as pd
 
 from fidc_lakehouse.generate import generate
 
@@ -29,6 +28,8 @@ def test_one_acquisition_file_per_fund_per_business_day(landing, funds):
 
 def test_files_use_brazilian_formats(landing, funds):
     f = next((landing / funds[0].code / "acquisitions").glob("*.csv"))
-    df = pd.read_csv(f, sep=";", dtype=str)
-    assert df["face_value"].str.contains(",").all()
-    assert df["acquisition_date"].str.match(r"\d{2}/\d{2}/\d{4}").all()
+    with open(f, encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle, delimiter=";"))
+    assert rows
+    assert all("," in r["face_value"] for r in rows)
+    assert all(len(r["acquisition_date"]) == 10 and r["acquisition_date"][2] == "/" for r in rows)

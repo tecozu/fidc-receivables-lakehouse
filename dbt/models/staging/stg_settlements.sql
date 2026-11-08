@@ -1,10 +1,10 @@
 with latest_files as (
-    select file_id from {{ ref('stg_file_ledger') }} where is_latest_version
+    select file_id, ingested_at from {{ ref('stg_file_ledger') }} where is_latest_version
 ),
 
 source as (
-    select s.*
-    from {{ source('raw', 'settlements') }} s
+    select s.*, l.ingested_at
+    from {{ source('silver', 'settlements') }} s
     join latest_files l on l.file_id = s.file_id
 ),
 
@@ -16,7 +16,7 @@ ranked as (
         *,
         row_number() over (
             partition by fund_code, transaction_id
-            order by file_id desc, row_number desc
+            order by ingested_at desc, file_id desc, row_number desc
         ) as occurrence_rank
     from source
 )

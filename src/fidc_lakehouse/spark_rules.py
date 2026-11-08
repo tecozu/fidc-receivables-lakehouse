@@ -122,6 +122,12 @@ def _unless(valid: Column) -> Column:
     return F.coalesce(~valid, F.lit(True))
 
 
+def _payload(columns: list[str]) -> Column:
+    """The original row as JSON, with empty fields written as "" (a CSV reader reads them
+    as NULL, and `to_json` would leave them out)."""
+    return F.to_json(F.struct(*[F.coalesce(F.col(c), F.lit("")).alias(c) for c in columns]))
+
+
 def _data_columns(df: DataFrame, file_key: list[str]) -> list[str]:
     """The columns that came from the file, without the columns identifying the file."""
     return [c for c in df.columns if c not in file_key]
@@ -178,7 +184,7 @@ def rate_acquisitions(df: DataFrame, file_key: list[str]) -> DataFrame:
         ("duplicate_in_file", _is_repeated_copy(row_hash, file_key)),
     )
     return (
-        df.withColumn("payload", F.to_json(F.struct(*raw)))
+        df.withColumn("payload", _payload(raw))
         .withColumn("reason", reason)
         .withColumns(
             {
@@ -242,7 +248,7 @@ def rate_settlements(
         ("duplicate_in_file", _is_repeated_copy(row_hash, file_key)),
     )
     return (
-        df.withColumn("payload", F.to_json(F.struct(*raw)))
+        df.withColumn("payload", _payload(raw))
         .withColumn("reason", reason)
         .withColumns(
             {

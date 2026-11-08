@@ -1,156 +1,144 @@
-"""Idempotent ingestion of landing files into the DuckDB raw layer.
+"""The local runner: ingest the landing files with Spark running on this machine.
+
+It does what the Databricks pipeline does, with the same functions:
+
+    landing CSV files -> bronze rows (text) -> Spark rules -> silver tables, rejected
+    rows and file ledger
+
+The only differences are where bronze is read (a local folder instead of Auto Loader)
+and where the results go: Parquet files that are loaded into DuckDB, so dbt can run on
+them without a Databricks workspace.
 
 Guarantees:
-* **Idempotent** - every file is fingerprinted (SHA-256) in `meta.file_ledger`;
-  re-running ingestion, or receiving the same file twice, loads nothing new.
-* **Atomic per file** - ledger entry, accepted rows and rejected rows are written
-  in one transaction, so a crash never leaves a half-loaded file.
-* **Corrections supported** - a *different* file with the same name is a new
-  version; the dbt staging layer keeps only the latest version of each file.
-* **Quality gate** - rows that break a rule go to `meta.rejected_rows` with the
-  reason and the original payload instead of failing the whole file.
+* **Idempotent** - every run rebuilds the tables from all the files, and a file whose
+  SHA-256 was already seen is ignored, so running twice gives the same result.
+* **Corrections supported** - a *different* file with the same name is a new version;
+  the dbt staging layer keeps only the latest one.
+* **Quality gate** - rows that break a rule go to `meta.rejected_rows` with the reason
+  and the original row, instead of failing the file.
 """
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 import duckdb
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
 
+from fidc_lakehouse import spark_pipeline as pipeline
 from fidc_lakehouse.config import Fund
-from fidc_lakehouse.validation import EVENT_TYPES, FILE_PATTERN, process_file
+from fidc_lakehouse.landing import LandingFile, discover_files
+from fidc_lakehouse.layouts import get_layout
+from fidc_lakehouse.spark_session import get_spark
 
-DDL = """
-create schema if not exists raw;
-create schema if not exists meta;
-create sequence if not exists meta.file_id_seq start 1;
-
-create table if not exists meta.file_ledger (
-    file_id        bigint primary key,
-    fund_code      varchar not null,
-    event_type     varchar not null,
-    file_name      varchar not null,
-    file_date      date not null,
-    sha256         varchar not null unique,
-    row_count      integer not null,
-    accepted_count integer not null,
-    rejected_count integer not null,
-    ingested_at    timestamp not null default current_timestamp
-);
-
-create table if not exists meta.rejected_rows (
-    file_id    bigint not null,
-    row_number integer not null,
-    reason     varchar not null,
-    payload    json
-);
-
-create table if not exists raw.acquisitions (
-    fund_code          varchar not null,
-    contract_id        varchar,
-    installment_id     varchar not null,
-    installment_number integer not null,
-    receivable_type    varchar,
-    seller_name      varchar,
-    seller_doc       varchar,
-    originator_name  varchar,
-    originator_doc   varchar,
-    debtor_name      varchar,
-    debtor_doc       varchar not null,
-    issue_date       date,
-    due_date         date not null,
-    acquisition_date date not null,
-    face_value       decimal(18, 2) not null,
-    purchase_price   decimal(18, 2) not null,
-    file_id          bigint not null,
-    row_number       integer not null
-);
-
-create table if not exists raw.settlements (
-    fund_code       varchar not null,
-    installment_id  varchar not null,
-    transaction_id  varchar not null,
-    settlement_date date not null,
-    settlement_type varchar not null,
-    amount_paid     decimal(18, 2) not null,
-    file_id         bigint not null,
-    row_number      integer not null
-);
-"""
+TABLES = {
+    "acquisitions": "silver.acquisitions",
+    "settlements": "silver.settlements",
+    "rejected_rows": "meta.rejected_rows",
+    "file_ledger": "meta.file_ledger",
+}
 
 
-@dataclass
-class FileResult:
-    path: Path
-    status: str  # "loaded" | "skipped_duplicate"
-    rows: int = 0
-    accepted: int = 0
-    rejected: int = 0
+@dataclass(frozen=True)
+class IngestSummary:
+    files: int  # file versions loaded
+    identical_skipped: int  # files ignored because the same bytes were already loaded
+    rows: int
+    accepted: int
+    rejected: int
 
 
-def init_warehouse(con: duckdb.DuckDBPyConnection) -> None:
-    con.execute(DDL)
+def _read_rows(spark: SparkSession, files: list[LandingFile]) -> DataFrame:
+    """The rows of files that share a fund and a layout, as text plus file metadata."""
+    first = files[0]
+    layout = get_layout(first.fund.layouts[first.event])
+    paths = [str(f.path) for f in files]
+    df = pipeline.with_file_metadata(spark.read.options(**layout.reader_options()).csv(paths))
+    expected = layout.columns[first.event]
+    missing = [c for c in expected if c not in df.columns]
+    if missing:
+        raise ValueError(
+            f"Layout '{layout.name}' requires {missing} in {first.event} files of "
+            f"{first.fund.code}, but they have: {df.columns}"
+        )
+    return df.select(*expected, *pipeline.FILE_KEY)
 
 
-def discover_files(landing: Path, funds: list[Fund], up_to: date | None = None):
-    """Yield (fund, event_type, file_date, path) in chronological order."""
-    found = []
-    for fund in funds:
-        for event in EVENT_TYPES:
-            for path in (landing / fund.code / event).glob("*.csv"):
-                m = FILE_PATTERN.match(path.name)
-                if not m or m["event"] != event:
-                    continue
-                file_date = date.fromisoformat(m["date"])
-                if up_to is None or file_date <= up_to:
-                    found.append((file_date, fund.code, event, fund, path))
-    for file_date, _, event, fund, path in sorted(found, key=lambda x: x[:3]):
-        yield fund, event, file_date, path
+def _group(files: list[LandingFile]) -> dict[tuple[str, str], list[LandingFile]]:
+    groups: dict[tuple[str, str], list[LandingFile]] = {}
+    for f in files:
+        groups.setdefault((f.fund.code, f.event), []).append(f)
+    return groups
 
 
-def ingest_file(
-    con: duckdb.DuckDBPyConnection, fund: Fund, event: str, file_date: date, path: Path
-) -> FileResult:
-    content = path.read_bytes()
-    digest = hashlib.sha256(content).hexdigest()
-    if con.execute("select 1 from meta.file_ledger where sha256 = ?", [digest]).fetchone():
-        return FileResult(path, "skipped_duplicate")
+def build_layers(spark: SparkSession, files: list[LandingFile]) -> pipeline.Layers:
+    rated: dict[str, list[DataFrame]] = {"acquisitions": [], "settlements": []}
+    for group in _group(files).values():
+        fund, event = group[0].fund, group[0].event
+        rows = _read_rows(spark, group)
+        if event == "acquisitions":
+            rated[event].append(pipeline.rate_acquisitions(rows, fund.code))
+        else:
+            layout = get_layout(fund.layouts[event])
+            has_id = layout.has_transaction_id(event)
+            rated[event].append(pipeline.rate_settlements(rows, fund.code, has_id))
 
-    processed = process_file(content, fund, event)
-    accepted, rejects = processed.accepted, processed.rejects
+    if files:
+        binary = spark.read.format("binaryFile").load(
+            [str(f.path) for f in files]
+        )  # one row per file: path, size, modification time and bytes
+        fingerprints = pipeline.fingerprints(binary)
+    else:
+        fingerprints = spark.createDataFrame(
+            [], "file_path string, file_modification_time timestamp, size_bytes long, sha256 string"
+        )
+    return pipeline.build_layers(spark, rated["acquisitions"], rated["settlements"], fingerprints)
 
-    con.begin()
-    try:
-        file_id = con.execute("select nextval('meta.file_id_seq')").fetchone()[0]
-        con.execute(
-            """insert into meta.file_ledger (file_id, fund_code, event_type, file_name, file_date,
-                   sha256, row_count, accepted_count, rejected_count)
-               values (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [file_id, fund.code, event, path.name, file_date, digest,
-             processed.rows, len(accepted), len(rejects)],
-        )  # fmt: skip
-        if len(accepted):
-            con.register("accepted_df", accepted.assign(file_id=file_id))
-            con.execute(f"insert into raw.{event} by name select * from accepted_df")
-            con.unregister("accepted_df")
-        if len(rejects):
-            con.register("rejects_df", rejects.assign(file_id=file_id))
-            con.execute("insert into meta.rejected_rows by name select * from rejects_df")
-            con.unregister("rejects_df")
-        con.commit()
-    except Exception:
-        con.rollback()
-        raise
-    return FileResult(path, "loaded", processed.rows, len(accepted), len(rejects))
+
+def _load_duckdb(db_path: Path, lake: Path, layers: pipeline.Layers) -> None:
+    """Write each table as Parquet, then (re)create it in DuckDB from those files."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    frames = {
+        "acquisitions": layers.acquisitions,
+        "settlements": layers.settlements,
+        "rejected_rows": layers.rejected_rows,
+        "file_ledger": layers.file_ledger,
+    }
+    for name, df in frames.items():
+        df.coalesce(1).write.mode("overwrite").parquet(str(lake / name))
+    with duckdb.connect(str(db_path)) as con:
+        con.execute("create schema if not exists silver; create schema if not exists meta;")
+        for name, table in TABLES.items():
+            source = (lake / name).as_posix()
+            files = f"read_parquet('{source}/*.parquet')"
+            con.execute(f"create or replace table {table} as select * from {files}")
 
 
 def ingest(
     db_path: Path, landing: Path, funds: list[Fund], up_to: date | None = None
-) -> list[FileResult]:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(str(db_path)) as con:
-        init_warehouse(con)
-        return [ingest_file(con, *item) for item in discover_files(landing, funds, up_to)]
+) -> IngestSummary:
+    spark = get_spark()
+    files = list(discover_files(landing, funds, up_to))
+    layers = build_layers(spark, files)
+    layers.file_ledger.persist()
+    try:
+        lake = db_path.parent / f"{db_path.stem}_lake"
+        _load_duckdb(db_path, lake, layers)
+        totals = layers.file_ledger.agg(
+            F.count(F.lit(1)).alias("files"),
+            F.coalesce(F.sum("row_count"), F.lit(0)).alias("rows"),
+            F.coalesce(F.sum("accepted_count"), F.lit(0)).alias("accepted"),
+            F.coalesce(F.sum("rejected_count"), F.lit(0)).alias("rejected"),
+        ).first()
+    finally:
+        layers.file_ledger.unpersist()
+    return IngestSummary(
+        files=totals["files"],
+        identical_skipped=len(files) - totals["files"],
+        rows=int(totals["rows"]),
+        accepted=int(totals["accepted"]),
+        rejected=int(totals["rejected"]),
+    )

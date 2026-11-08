@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fidc_lakehouse import config
 from fidc_lakehouse.business_calendar import BusinessCalendar
-from fidc_lakehouse.ingest import FileResult, ingest
+from fidc_lakehouse.ingest import IngestSummary, ingest
 
 
 class DbtError(RuntimeError):
@@ -36,18 +36,18 @@ def run_dbt(args: list[str], as_of: date, db_path: Path) -> None:
         raise DbtError(f"dbt {' '.join(args)} failed for {as_of}")
 
 
-def summarize(results: list[FileResult]) -> str:
-    loaded = [r for r in results if r.status == "loaded"]
-    skipped = len(results) - len(loaded)
-    rows = sum(r.rows for r in loaded)
-    rejected = sum(r.rejected for r in loaded)
-    return f"{len(loaded)} files loaded ({rows} rows, {rejected} rejected), {skipped} skipped"
+def summarize(result: IngestSummary) -> str:
+    return (
+        f"{result.files} files loaded ({result.rows} rows, {result.rejected} rejected), "
+        f"{result.identical_skipped} identical re-sends skipped"
+    )
 
 
-def run_day(as_of: date, full_build: bool = True) -> None:
+def run_day(as_of: date, full_build: bool = True, ingest_first: bool = True) -> None:
     db = config.warehouse_path()
-    results = ingest(db, config.landing_dir(), config.load_funds(), up_to=as_of)
-    print(f"[{as_of}] ingestion: {summarize(results)}")
+    if ingest_first:
+        result = ingest(db, config.landing_dir(), config.load_funds(), up_to=as_of)
+        print(f"[{as_of}] ingestion: {summarize(result)}")
     if full_build:
         run_dbt(["build"], as_of, db)
     else:
@@ -57,11 +57,18 @@ def run_day(as_of: date, full_build: bool = True) -> None:
 
 
 def backfill(start: date, end: date) -> None:
-    """Rebuild every business day in [start, end], then run the full test suite."""
+    """Rebuild every business day in [start, end], then run the full test suite.
+
+    All files up to `end` are ingested once, up front. Every date then sees the latest
+    version of each file, which is what a reprocessing after a correction should do.
+    """
     days = BusinessCalendar.from_csv().business_days(start, end)
     if not days:
         raise ValueError("No business days in the given range")
-    run_dbt(["seed"], days[0], config.warehouse_path())
+    db = config.warehouse_path()
+    result = ingest(db, config.landing_dir(), config.load_funds(), up_to=days[-1])
+    print(f"[{days[0]}..{days[-1]}] ingestion: {summarize(result)}")
+    run_dbt(["seed"], days[0], db)
     for i, d in enumerate(days):
-        run_day(d, full_build=(i == 0))
-    run_dbt(["build"], days[-1], config.warehouse_path())
+        run_day(d, full_build=(i == 0), ingest_first=False)
+    run_dbt(["build"], days[-1], db)
