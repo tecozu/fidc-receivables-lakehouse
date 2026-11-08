@@ -117,7 +117,7 @@ net value = present value − present value × provision rate(days overdue, fund
 
 | Where | Check |
 |---|---|
-| Silver (Spark rules) | CPF/CNPJ mod-11 checksums, positive face value, `0 < price ≤ face`, valid dates, `due > acquisition`, required keys, installment number, duplicates within a file (exact copies keep one row; rows that share an installment or transaction ID but differ are all rejected) |
+| Silver (Spark rules) | header must match the layout (whole file rejected otherwise), CPF/CNPJ mod-11 checksums, positive face value, `0 < price ≤ face`, valid dates, `due > acquisition`, required keys, installment number, duplicates within a file (exact copies keep one row; rows that share an installment or transaction ID but differ are all rejected) |
 | dbt generic tests | uniqueness/not-null on keys, accepted values, referential integrity, `non_negative`, row-level `expression_is_true` contracts |
 | dbt singular tests | **ledger reconciliation**: every snapshot's outstanding equals the ledger balance on that date · **pricing round-trip**: on the purchase date PV equals the price paid · **completeness**: no business day missing from the daily series |
 | Monitoring models | `rpt_ingestion_quality` (rejection rate and reasons per file), `rpt_orphan_settlements` (payments for installments the fund does not hold; warn-level test) |

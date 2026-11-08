@@ -52,19 +52,19 @@ class IngestSummary:
 
 
 def _read_rows(spark: SparkSession, files: list[LandingFile]) -> DataFrame:
-    """The rows of files that share a fund and a layout, as text plus file metadata."""
+    """The rows of files that share a fund and a layout, as text plus file metadata.
+
+    Columns are read by position against the layout's schema, exactly as the Databricks
+    pipeline does. A file whose header is not the layout's is rejected later, in silver.
+    """
     first = files[0]
     layout = get_layout(first.fund.layouts[first.event])
+    schema = ", ".join(f"`{c}` STRING" for c in layout.columns[first.event])
     paths = [str(f.path) for f in files]
-    df = pipeline.with_file_metadata(spark.read.options(**layout.reader_options()).csv(paths))
-    expected = layout.columns[first.event]
-    missing = [c for c in expected if c not in df.columns]
-    if missing:
-        raise ValueError(
-            f"Layout '{layout.name}' requires {missing} in {first.event} files of "
-            f"{first.fund.code}, but they have: {df.columns}"
-        )
-    return df.select(*expected, *pipeline.FILE_KEY)
+    reader = spark.read.options(**layout.reader_options()).schema(schema)
+    return pipeline.with_file_metadata(reader.csv(paths)).select(
+        *layout.columns[first.event], *pipeline.FILE_KEY
+    )
 
 
 def _group(files: list[LandingFile]) -> dict[tuple[str, str], list[LandingFile]]:
@@ -79,12 +79,13 @@ def build_layers(spark: SparkSession, files: list[LandingFile]) -> pipeline.Laye
     for group in _group(files).values():
         fund, event = group[0].fund, group[0].event
         rows = _read_rows(spark, group)
+        layout = get_layout(fund.layouts[event])
+        header = layout.expected_header(event)
         if event == "acquisitions":
-            rated[event].append(pipeline.rate_acquisitions(rows, fund.code))
+            rated[event].append(pipeline.rate_acquisitions(rows, fund.code, header))
         else:
-            layout = get_layout(fund.layouts[event])
             has_id = layout.has_transaction_id(event)
-            rated[event].append(pipeline.rate_settlements(rows, fund.code, has_id))
+            rated[event].append(pipeline.rate_settlements(rows, fund.code, has_id, header))
 
     if files:
         binary = spark.read.format("binaryFile").load(
@@ -93,7 +94,9 @@ def build_layers(spark: SparkSession, files: list[LandingFile]) -> pipeline.Laye
         fingerprints = pipeline.fingerprints(binary)
     else:
         fingerprints = spark.createDataFrame(
-            [], "file_path string, file_modification_time timestamp, size_bytes long, sha256 string"
+            [],
+            "file_path string, file_modification_time timestamp, size_bytes long, sha256 string, "
+            "header string",
         )
     return pipeline.build_layers(spark, rated["acquisitions"], rated["settlements"], fingerprints)
 

@@ -33,9 +33,11 @@ def rated_rows(fund, event):
     layout = get_layout(fund.layouts[event])
     bronze = spark.read.table(f"{fund.code.lower()}_{event}_rows")  # noqa: F821
     rows = bronze.select(*layout.columns[event], *spark_pipeline.FILE_KEY)
+    header = layout.expected_header(event)
     if event == "acquisitions":
-        return spark_pipeline.rate_acquisitions(rows, fund.code)
-    return spark_pipeline.rate_settlements(rows, fund.code, layout.has_transaction_id(event))
+        return spark_pipeline.rate_acquisitions(rows, fund.code, header)
+    has_id = layout.has_transaction_id(event)
+    return spark_pipeline.rate_settlements(rows, fund.code, has_id, header)
 
 
 def layers_of(fund):

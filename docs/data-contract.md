@@ -67,6 +67,14 @@ treated as exact copies and one row is kept. A provider column removes this limi
 
 The first failing rule, in the order listed, is the single reason recorded for a row.
 
+**File-level rule, checked before every row rule: `invalid_header`.** The first line of a
+file must be the layout's columns, in order, separated by the layout's separator (a UTF-8
+byte-order mark and a trailing carriage return are ignored). Rows are read by position, so
+a different header would put values in the wrong columns without any error. A file that
+does not match has **all its rows rejected** with this reason, which keeps the problem
+inside that file: other files, and other funds, are not affected. The rule is strict about
+order: a harmless reordering of columns is rejected too, because the layout is a contract.
+
 Acquisitions:
 1. `missing_installment_id`
 2. `invalid_installment_number`

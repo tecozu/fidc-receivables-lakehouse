@@ -35,6 +35,10 @@ class Layout:
     def has_transaction_id(self, event: str) -> bool:
         return "transaction_id" in self.columns[event]
 
+    def expected_header(self, event: str) -> str:
+        """The first line a file of this layout must have: the columns, in order."""
+        return self.separator.join(self.columns[event])
+
     def reader_options(self) -> dict[str, str]:
         """Options for Spark's CSV reader and for Auto Loader."""
         return {

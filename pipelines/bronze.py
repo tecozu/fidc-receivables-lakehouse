@@ -4,6 +4,11 @@ Nothing is validated or rejected here. Rows stay as text, next to the file versi
 came from, so a rule can change later and the silver tables can be rebuilt from bronze
 without asking an administrator to resend anything.
 
+The layout gives the schema, so a file's columns are never inferred. That alone does not
+protect against a changed header (with `enforceSchema=false`, a swapped header was seen to
+shift values silently), so each file's header line is stored with its fingerprint and
+silver rejects every file whose header is not exactly the layout's.
+
 The tables are created in a loop over the funds in `funds.yaml`: onboarding a fund is a
 line in that file, not new code. Each fund gets its own tables, so a fund's files, size
 and failures never touch another fund's.
@@ -29,14 +34,17 @@ def define_rows_table(fund, event):
         comment=f"{fund.code} {event} files, one row per CSV row, all columns as text.",
     )
     def rows():
+        columns = ", ".join(f"`{c}` STRING" for c in layout.columns[event])
         stream = (
             spark.readStream.format("cloudFiles")  # noqa: F821
             .option("cloudFiles.format", "csv")
             # A corrected file re-sent under the same name must be read again.
             .option("cloudFiles.allowOverwrites", "true")
-            # Columns are matched by the header's names. Giving a schema together with a
-            # header would match them by position and silently shift columns.
-            .option("cloudFiles.schemaEvolutionMode", "rescue")
+            # The layout gives the schema (all text). Auto Loader cannot infer one from an
+            # empty folder, and that failure stops the whole pipeline update, every fund,
+            # so a fund registered before its first file would block the others.
+            .schema(columns)
+            .option("rescuedDataColumn", "_rescued_data")
             .options(**layout.reader_options())
             .load(f"{LANDING}/{fund.code}/{event}/")
         )

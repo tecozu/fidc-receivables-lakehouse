@@ -75,13 +75,24 @@ def with_file_metadata(df: DataFrame) -> DataFrame:
     )
 
 
+def header_line(content: Column) -> Column:
+    """The first line of a CSV file, without a UTF-8 byte-order mark or a trailing CR."""
+    first = F.substring_index(F.decode(content, "UTF-8"), "\n", 1)
+    return F.regexp_replace(first, r"^\uFEFF|\r$", "")
+
+
 def fingerprints(binary_files: DataFrame) -> DataFrame:
-    """One row per file with its size and SHA-256, without keeping the content."""
+    """One row per file with its size, SHA-256 and header line, without keeping the content.
+
+    The header is what lets silver reject a file whose columns are not the layout's: the
+    rows are read by position, so a changed header would otherwise shift values silently.
+    """
     return binary_files.select(
         normalize_path(F.col("path")).alias("file_path"),
         F.col("modificationTime").alias("file_modification_time"),
         F.col("length").alias("size_bytes"),
         F.sha2(F.col("content"), 256).alias("sha256"),
+        header_line(F.col("content")).alias("header"),
     )
 
 
@@ -103,15 +114,21 @@ def file_id(sha256: Column) -> Column:
     return F.conv(F.substring(sha256, 1, 15), 16, 10).try_cast("bigint")
 
 
-def rate_acquisitions(rows: DataFrame, fund_code: str) -> DataFrame:
+def rate_acquisitions(rows: DataFrame, fund_code: str, expected_header: str) -> DataFrame:
     """`rows` holds exactly the layout's columns plus FILE_KEY."""
     rated = spark_rules.rate_acquisitions(rows, FILE_KEY)
-    return rated.withColumn("fund_code", F.lit(fund_code))
+    return rated.withColumn("fund_code", F.lit(fund_code)).withColumn(
+        "expected_header", F.lit(expected_header)
+    )
 
 
-def rate_settlements(rows: DataFrame, fund_code: str, provider_transaction_id: bool) -> DataFrame:
+def rate_settlements(
+    rows: DataFrame, fund_code: str, provider_transaction_id: bool, expected_header: str
+) -> DataFrame:
     rated = spark_rules.rate_settlements(rows, FILE_KEY, fund_code, provider_transaction_id)
-    return rated.withColumn("fund_code", F.lit(fund_code))
+    return rated.withColumn("fund_code", F.lit(fund_code)).withColumn(
+        "expected_header", F.lit(expected_header)
+    )
 
 
 def _conform(df: DataFrame, ddl: str) -> DataFrame:
@@ -128,7 +145,13 @@ def _union(frames: list[DataFrame]) -> DataFrame | None:
 
 
 def _number_rows(df: DataFrame, ids: DataFrame) -> DataFrame:
-    """Attach `file_id` and a stable position inside the file.
+    """Attach `file_id`, apply the file-level header rule, and number the rows of a file.
+
+    A file whose header is not the layout's has every row rejected as `invalid_header`,
+    before any row rule: the values may sit in the wrong columns, so a row-level reason
+    such as `invalid_date` would hide the real cause.
+
+    The row number is a stable position inside the file.
 
     The position orders rows by their original content, not by their line in the file:
     a parallel reader has no line numbers. It is used for lineage and as a tie-breaker,
@@ -137,7 +160,14 @@ def _number_rows(df: DataFrame, ids: DataFrame) -> DataFrame:
     in_file = Window.partitionBy(*FILE_KEY).orderBy(
         F.sha2(F.col("payload"), 256), F.monotonically_increasing_id()
     )
-    return df.join(ids, FILE_KEY, "inner").withColumn("row_number", F.row_number().over(in_file))
+    wrong_header = F.col("header") != F.col("expected_header")
+    return (
+        df.join(ids, FILE_KEY, "inner")
+        .withColumn(
+            "reason", F.when(wrong_header, F.lit("invalid_header")).otherwise(F.col("reason"))
+        )
+        .withColumn("row_number", F.row_number().over(in_file))
+    )
 
 
 def build_layers(
@@ -152,7 +182,7 @@ def build_layers(
     `files` is the output of `fingerprints`.
     """
     kept = keep_first_of_each_content(files).withColumn("file_id", file_id(F.col("sha256")))
-    ids = kept.select(*FILE_KEY, "file_id")
+    ids = kept.select(*FILE_KEY, "file_id", "header")
 
     acq = _union(acquisitions)
     sett = _union(settlements)
