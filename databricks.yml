@@ -8,7 +8,7 @@ bundle:
 artifacts:
   fidc_lakehouse:
     type: whl
-    build: uv build --wheel
+    build: python3 scripts/build_wheel.py
     path: .
 
 variables:

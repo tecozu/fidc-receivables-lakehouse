@@ -1,6 +1,6 @@
 [project]
 name = "fidc-lakehouse"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Daily valuation lakehouse for a Brazilian receivables fund (FIDC) on Databricks: Auto Loader, Lakeflow, dbt and Unity Catalog, with DuckDB for local runs and CI."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,6 +31,9 @@ fidc = "fidc_lakehouse.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/fidc_lakehouse/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fidc_lakehouse"]
