@@ -24,6 +24,7 @@ from fidc_lakehouse.layouts import get_layout
 
 LANDING = spark.conf.get("fidc.landing")  # noqa: F821
 SELECTED = {code.strip() for code in spark.conf.get("fidc.funds").split(",")}  # noqa: F821
+ALL_FUNDS = "*" in SELECTED  # "*" means every fund in funds.yaml
 
 
 def define_rows_table(fund, event):
@@ -72,7 +73,7 @@ def define_fingerprint_table(fund):
 
 
 for fund in load_funds():
-    if fund.code not in SELECTED:
+    if not (ALL_FUNDS or fund.code in SELECTED):
         continue
     for event in fund.layouts:
         define_rows_table(fund, event)

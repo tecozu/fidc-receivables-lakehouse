@@ -17,9 +17,10 @@ variables:
     default: workspace
   funds:
     description: >
-      Funds this deployment processes, comma separated. One pipeline can handle all of
-      them; to isolate a fund, deploy a pipeline whose list has only that fund.
-    default: ALPHA,BETA
+      Funds this deployment processes, comma separated, or * for every fund in funds.yaml.
+      One pipeline can handle all of them; to isolate a fund, deploy a pipeline whose list
+      has only that fund.
+    default: "*"
 
 include:
   - resources/*.yml
@@ -29,6 +30,11 @@ targets:
     # Development mode prefixes resource names with [dev <user>] and pauses schedules,
     # so a personal deployment never collides with a shared one.
     mode: development
+    # Development mode keeps the pipeline's compute warm between updates, and a warm
+    # compute keeps the Python environment it installed first: a newly deployed wheel is
+    # ignored, even with a new version. Turn it off so every update starts clean.
+    presets:
+      pipelines_development: false
     default: true
     workspace:
       host: https://dbc-59cd88f6-8e13.cloud.databricks.com

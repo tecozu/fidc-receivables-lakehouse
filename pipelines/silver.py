@@ -26,6 +26,7 @@ CATALOG = spark.conf.get("fidc.catalog")  # noqa: F821
 SILVER = f"{CATALOG}.{spark.conf.get('fidc.silver_schema')}"  # noqa: F821
 META = f"{CATALOG}.{spark.conf.get('fidc.meta_schema')}"  # noqa: F821
 SELECTED = {code.strip() for code in spark.conf.get("fidc.funds").split(",")}  # noqa: F821
+ALL_FUNDS = "*" in SELECTED  # "*" means every fund in funds.yaml
 
 
 def rated_rows(fund, event):
@@ -83,5 +84,5 @@ def define_silver_views(fund):
 
 
 for fund in load_funds():
-    if fund.code in SELECTED:
+    if ALL_FUNDS or fund.code in SELECTED:
         define_silver_views(fund)
