@@ -6,7 +6,7 @@ funds:
     name: Alpha Trade Receivables Fund
     events:
       acquisitions: { layout: csv_br_v1 }
-      settlements: { layout: csv_br_v1 }
+      settlements: { layout: csv_br_v2 }  # carries the administrator's payment ID
 
   - code: BETA
     name: Beta Consumer Credit Fund

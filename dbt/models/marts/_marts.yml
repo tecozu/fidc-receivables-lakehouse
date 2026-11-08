@@ -18,13 +18,13 @@ models:
       - name: counterparty_doc
         data_tests: [unique, not_null]
 
-  - name: dim_receivable
+  - name: dim_installment
     data_tests:
       - unique_combination:
           arguments:
-            columns: [fund_code, receivable_id]
+            columns: [fund_code, installment_id]
 
-  - name: fct_receivable_events
+  - name: fct_installment_events
     description: Append-only event ledger (acquisitions, partial/full settlements, cancellations).
     columns:
       - name: event_id
@@ -37,12 +37,12 @@ models:
 
   - name: fct_daily_portfolio
     description: >
-      Daily valuation snapshot of every open receivable: present value at the
+      Daily valuation snapshot of every open installment: present value at the
       purchase-implied rate (252 business-day basis), loss provision and net value.
     data_tests:
       - unique_combination:
           arguments:
-            columns: [as_of_date, fund_code, receivable_id]
+            columns: [as_of_date, fund_code, installment_id]
       - expression_is_true:
           arguments:
             expression: "present_value <= outstanding_amount + 0.01"
@@ -78,7 +78,7 @@ models:
     description: One row per landing file with acceptance/rejection counts and reasons.
 
   - name: rpt_orphan_settlements
-    description: Settlements that do not match any receivable held by the fund.
+    description: Settlements that do not match any installment held by the fund.
     data_tests:
       - expression_is_true:
           arguments:

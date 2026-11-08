@@ -49,10 +49,11 @@ create table if not exists meta.rejected_rows (
 );
 
 create table if not exists raw.acquisitions (
-    fund_code        varchar not null,
-    receivable_id    varchar not null,
-    contract_id      varchar,
-    receivable_type  varchar,
+    fund_code          varchar not null,
+    contract_id        varchar,
+    installment_id     varchar not null,
+    installment_number integer not null,
+    receivable_type    varchar,
     seller_name      varchar,
     seller_doc       varchar,
     originator_name  varchar,
@@ -70,7 +71,8 @@ create table if not exists raw.acquisitions (
 
 create table if not exists raw.settlements (
     fund_code       varchar not null,
-    receivable_id   varchar not null,
+    installment_id  varchar not null,
+    transaction_id  varchar not null,
     settlement_date date not null,
     settlement_type varchar not null,
     amount_paid     decimal(18, 2) not null,

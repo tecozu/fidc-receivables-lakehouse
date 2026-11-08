@@ -1,4 +1,4 @@
--- Daily portfolio snapshot: one row per open receivable per reference date.
+-- Daily portfolio snapshot: one row per open installment per reference date.
 -- Every run of a date fully replaces that date's snapshot (safe reprocessing after
 -- corrected files):
 --   * DuckDB (dev/CI): native incremental delete+insert on as_of_date.
@@ -25,7 +25,9 @@
 select
     as_of_date,
     fund_code,
-    receivable_id,
+    installment_id,
+    contract_id,
+    installment_number,
     receivable_type,
     debtor_doc,
     seller_doc,
@@ -47,4 +49,4 @@ select
     provision_amount,
     net_value,
     current_timestamp as processed_at
-from {{ ref('int_receivable_valuation') }}
+from {{ ref('int_installment_valuation') }}

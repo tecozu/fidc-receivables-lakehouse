@@ -3,6 +3,7 @@ from datetime import date
 import duckdb
 import pandas as pd
 
+from fidc_lakehouse.config import Fund
 from fidc_lakehouse.ingest import ingest
 from fidc_lakehouse.validation import validate_acquisitions
 
@@ -52,7 +53,8 @@ def test_corrected_file_is_loaded_as_new_version(tmp_path, landing, funds):
 
 def _row(**overrides):
     row = {
-        "receivable_id": "X-1", "contract_id": "C1", "receivable_type": "TRADE_BILL",
+        "contract_id": "C1", "installment_id": "X-1", "installment_number": "1",
+        "receivable_type": "TRADE_BILL",
         "seller_name": "S", "seller_doc": "11.222.333/0001-81",
         "originator_name": "O", "originator_doc": "11.222.333/0001-81",
         "debtor_name": "D", "debtor_doc": "529.982.247-25",
@@ -67,15 +69,15 @@ def test_validation_rules():
     raw = pd.DataFrame(
         [
             _row(),
-            _row(receivable_id="X-2", debtor_doc="12.ABC.345/0001-XX"),
-            _row(receivable_id="X-3", face_value="-1000,00"),
-            _row(receivable_id="X-4", purchase_price="1100,00"),
-            _row(receivable_id="X-5", due_date="01/01/2026"),
+            _row(installment_id="X-2", debtor_doc="12.ABC.345/0001-XX"),
+            _row(installment_id="X-3", face_value="-1000,00"),
+            _row(installment_id="X-4", purchase_price="1100,00"),
+            _row(installment_id="X-5", due_date="01/01/2026"),
             _row(),  # duplicate of X-1
         ]
     )
-    accepted, rejects = validate_acquisitions(raw)
-    assert accepted["receivable_id"].tolist() == ["X-1"]
+    accepted, rejects = validate_acquisitions(raw, Fund("ALPHA", "Alpha", {}))
+    assert accepted["installment_id"].tolist() == ["X-1"]
     assert rejects["reason"].tolist() == [
         "invalid_debtor_doc",
         "non_positive_face_value",

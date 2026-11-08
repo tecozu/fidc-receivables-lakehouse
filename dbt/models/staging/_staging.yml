@@ -7,11 +7,11 @@ models:
         data_tests: [unique, not_null]
 
   - name: stg_acquisitions
-    description: Latest valid version of every purchased receivable.
+    description: Latest valid version of every purchased installment.
     data_tests:
       - unique_combination:
           arguments:
-            columns: [fund_code, receivable_id]
+            columns: [fund_code, installment_id]
       - expression_is_true:
           arguments:
             expression: "purchase_price <= face_value"
@@ -34,9 +34,16 @@ models:
                 values: [INDIVIDUAL, COMPANY]
 
   - name: stg_settlements
+    description: Latest version of every payment, one row per transaction.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [fund_code, transaction_id]
     columns:
-      - name: settlement_id
-        data_tests: [unique, not_null]
+      - name: transaction_id
+        data_tests: [not_null]
+      - name: installment_id
+        data_tests: [not_null]
       - name: settlement_type
         data_tests:
           - accepted_values:

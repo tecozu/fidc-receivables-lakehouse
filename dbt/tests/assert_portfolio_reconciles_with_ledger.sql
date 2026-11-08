@@ -4,15 +4,15 @@ with ledger as (
     select
         p.as_of_date,
         p.fund_code,
-        p.receivable_id,
+        p.installment_id,
         p.outstanding_amount,
         sum(e.balance_delta) as ledger_balance
     from {{ ref('fct_daily_portfolio') }} p
-    join {{ ref('fct_receivable_events') }} e
+    join {{ ref('fct_installment_events') }} e
         on  e.fund_code = p.fund_code
-        and e.receivable_id = p.receivable_id
+        and e.installment_id = p.installment_id
         and e.event_date <= p.as_of_date
-    group by p.as_of_date, p.fund_code, p.receivable_id, p.outstanding_amount
+    group by p.as_of_date, p.fund_code, p.installment_id, p.outstanding_amount
 )
 
 select *

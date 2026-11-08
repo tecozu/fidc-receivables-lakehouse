@@ -5,14 +5,14 @@
 
 with events as (
     select *
-    from {{ ref('fct_receivable_events') }}
+    from {{ ref('fct_installment_events') }}
     where event_date <= date '{{ as_of }}'
 ),
 
 per_receivable as (
     select
         fund_code,
-        receivable_id,
+        installment_id,
         sum(balance_delta)                                   as ledger_balance,
         sum(case when event_type in ('FULL', 'PARTIAL') then cash_flow else 0 end)
                                                              as amount_paid_to_date,
@@ -20,7 +20,7 @@ per_receivable as (
         bool_or(event_type = 'CANCELLATION')                 as is_cancelled,
         bool_or(event_type = 'PARTIAL')                      as has_partial_settlement
     from events
-    group by fund_code, receivable_id
+    group by fund_code, installment_id
     having bool_or(event_type = 'ACQUISITION')
 )
 
@@ -36,6 +36,6 @@ select
         else 'OPEN'
     end                                        as lifecycle_status
 from per_receivable p
-join {{ ref('dim_receivable') }} r
+join {{ ref('dim_installment') }} r
     on  r.fund_code = p.fund_code
-    and r.receivable_id = p.receivable_id
+    and r.installment_id = p.installment_id

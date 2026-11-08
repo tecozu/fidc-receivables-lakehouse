@@ -7,7 +7,7 @@
 
 A daily valuation pipeline for a **receivables investment fund**. It ingests the
 files a fund administrator delivers each business day, keeps an event ledger of
-every receivable, and produces a daily snapshot of present value, loss provisions
+every installment, and produces a daily snapshot of present value, loss provisions
 and net portfolio value for each fund. Every step is idempotent, reproducible and tested.
 
 > **FIDC** (*Fundo de Investimento em Direitos Creditórios*) is the Brazilian
@@ -39,7 +39,7 @@ flowchart LR
         X[(meta.rejected_rows)]
         subgraph dbt
             STG[staging<br/>latest file version,<br/>dedup, normalize]
-            LED[fct_receivable_events<br/>event ledger]
+            LED[fct_installment_events<br/>event ledger]
             INT[position + valuation<br/>as of date]
             FCT[fct_daily_portfolio<br/>incremental by date]
             RPT[rpt_fund_daily_summary<br/>rpt_ingestion_quality<br/>rpt_orphan_settlements]
@@ -57,10 +57,17 @@ flowchart LR
 | Layer | What happens | Key design choice |
 |---|---|---|
 | **Ingestion** (`src/fidc_lakehouse/ingest.py`) | Parse each file with the layout configured for its fund, validate every row (taxpayer-ID checksums, value and date rules, duplicates), load it in one transaction | SHA-256 **file ledger** makes ingestion idempotent; bad rows are quarantined with their reason and payload instead of failing the file |
-| **Staging** (`dbt/models/staging`) | Keep only the latest version of each file, deduplicate receivables, normalize IDs | A corrected file re-sent under the same name **supersedes** the old one, with no manual cleanup |
-| **Ledger** (`fct_receivable_events`) | Every acquisition, payment and cancellation becomes an event with a `balance_delta` | The outstanding balance on any date is `sum(balance_delta)`, so past dates can be rebuilt exactly |
-| **Valuation** (`int_receivable_*`) | Implied discount rate, present value on a 252 business-day basis, loss-provision bucket by days overdue | The B3 exchange calendar is precomputed with a running business-day counter, so business days between two dates is a subtraction and not a correlated subquery |
-| **Snapshot** (`fct_daily_portfolio`) | One row per open receivable per day | Incremental `delete+insert` on `as_of_date`: rerunning a date **replaces** its snapshot, which makes reprocessing safe |
+| **Staging** (`dbt/models/staging`) | Keep only the latest version of each file, deduplicate installments and payments by their keys, normalize IDs | A corrected file re-sent under the same name **supersedes** the old one, with no manual cleanup, and a payment re-sent under a new name is never counted twice |
+| **Ledger** (`fct_installment_events`) | Every acquisition, payment and cancellation becomes an event with a `balance_delta` | The outstanding balance on any date is `sum(balance_delta)`, so past dates can be rebuilt exactly |
+| **Valuation** (`int_installment_*`) | Implied discount rate, present value on a 252 business-day basis, loss-provision bucket by days overdue | The B3 exchange calendar is precomputed with a running business-day counter, so business days between two dates is a subtraction and not a correlated subquery |
+| **Snapshot** (`fct_daily_portfolio`) | One row per open installment per day | Incremental `delete+insert` on `as_of_date`: rerunning a date **replaces** its snapshot, which makes reprocessing safe |
+
+**Keys.** The grain is the installment (*parcela*). An acquisition row is keyed by the
+administrator's installment number (*nosso número*), and a payment points to it through
+that number, which is how a payment writes the installment off the portfolio. A payment
+is keyed by a transaction ID that the administrator supplies, or that the pipeline
+derives as a hash when the file has none. Keys are unique per fund. The full field list,
+rules and known limits are in [`docs/data-contract.md`](docs/data-contract.md).
 
 ## Quickstart
 
@@ -87,13 +94,13 @@ fidc backfill --start 2026-01-02 --end 2026-03-31   # rebuild every business day
 
 ## Valuation logic
 
-A receivable with face value `F`, bought for price `P` with `n` business days to
+An installment with face value `F`, bought for price `P` with `n` business days to
 maturity, implies an annual rate (Brazilian 252-day convention):
 
 $$ r = \left(\frac{F}{P}\right)^{252/n} - 1 $$
 
 On each reference date the **outstanding amount** (face minus partial payments) is
-discounted at `r` over the remaining business days. Overdue receivables are carried
+discounted at `r` over the remaining business days. Overdue installments are carried
 at their outstanding amount. A **loss provision** is then applied by days-overdue bucket.
 The bucket table is a versioned policy (`valid_from`/`valid_to`) inspired by Brazilian
 Central Bank Resolution 2682, and each fund can follow a different policy.
@@ -106,10 +113,10 @@ net value = present value − present value × provision rate(days overdue, fund
 
 | Where | Check |
 |---|---|
-| Ingestion (Python) | CPF/CNPJ mod-11 checksums, positive face value, `0 < price ≤ face`, valid dates, `due > acquisition`, duplicates within a file (exact copies keep one row; rows that share a receivable ID but differ are all rejected) |
+| Ingestion (Python) | CPF/CNPJ mod-11 checksums, positive face value, `0 < price ≤ face`, valid dates, `due > acquisition`, required keys, installment number, duplicates within a file (exact copies keep one row; rows that share an installment or transaction ID but differ are all rejected) |
 | dbt generic tests | uniqueness/not-null on keys, accepted values, referential integrity, `non_negative`, row-level `expression_is_true` contracts |
 | dbt singular tests | **ledger reconciliation**: every snapshot's outstanding equals the ledger balance on that date · **pricing round-trip**: on the purchase date PV equals the price paid · **completeness**: no business day missing from the daily series |
-| Monitoring models | `rpt_ingestion_quality` (rejection rate and reasons per file), `rpt_orphan_settlements` (payments for receivables the fund does not hold; warn-level test) |
+| Monitoring models | `rpt_ingestion_quality` (rejection rate and reasons per file), `rpt_orphan_settlements` (payments for installments the fund does not hold; warn-level test) |
 
 The reconciliation test caught a real bug during development. The daily run
 refreshed only the snapshot model, so snapshots were computed from a ledger that

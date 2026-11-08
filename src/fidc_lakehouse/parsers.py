@@ -24,7 +24,13 @@ def csv_br_v1(content: bytes) -> pd.DataFrame:
 
 LAYOUTS: dict[str, Parser] = {
     "csv_br_v1": csv_br_v1,
+    # Same format; the settlements file also carries the administrator's own payment ID.
+    "csv_br_v2": csv_br_v1,
 }
+
+# Layouts whose settlement files carry a provider `transaction_id` column. For any other
+# layout the pipeline derives the ID (see docs/data-contract.md).
+LAYOUTS_WITH_TRANSACTION_ID = frozenset({"csv_br_v2"})
 
 
 def get_parser(layout: str) -> Parser:

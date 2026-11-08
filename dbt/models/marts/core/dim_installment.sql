@@ -1,7 +1,8 @@
 select
     fund_code,
-    receivable_id,
+    installment_id,
     contract_id,
+    installment_number,
     receivable_type,
     seller_doc,
     originator_doc,

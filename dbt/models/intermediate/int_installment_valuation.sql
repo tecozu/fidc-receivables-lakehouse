@@ -4,7 +4,7 @@
 --   3. loss provision by days overdue, using the fund's policy in force on that date
 with open_positions as (
     select *
-    from {{ ref('int_receivable_position') }}
+    from {{ ref('int_installment_position') }}
     where lifecycle_status in ('OPEN', 'PARTIALLY_SETTLED')
       and outstanding_amount > 0
 ),

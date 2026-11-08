@@ -8,13 +8,13 @@ source as (
     join latest_files l on l.file_id = a.file_id
 ),
 
--- The same receivable can appear in more than one file (e.g. a corrected re-send
+-- The same installment can appear in more than one file (e.g. a corrected re-send
 -- under a new name). The most recently ingested occurrence wins.
 ranked as (
     select
         *,
         row_number() over (
-            partition by fund_code, receivable_id
+            partition by fund_code, installment_id
             order by file_id desc, row_number desc
         ) as occurrence_rank
     from source
@@ -26,8 +26,9 @@ deduplicated as (
 
 select
     fund_code,
-    receivable_id,
+    installment_id,
     contract_id,
+    installment_number,
     receivable_type,
     seller_name,
     {{ only_digits('seller_doc') }}     as seller_doc,
