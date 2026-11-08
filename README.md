@@ -28,14 +28,14 @@ flowchart LR
         S[settlements_YYYY-MM-DD.csv]
     end
 
-    subgraph Python["Python ingestion"]
-        P[Layout parsers<br/>per fund]
-        V{Quality gate<br/>row-level rules}
+    subgraph Spark["Spark (local mode here, Lakeflow on Databricks)"]
+        B[Bronze<br/>every row as text<br/>+ file fingerprint]
+        V{Quality gate<br/>native Spark rules}
         L[(meta.file_ledger<br/>SHA-256)]
     end
 
     subgraph DuckDB["DuckDB warehouse"]
-        R[(raw.*)]
+        R[(silver.*<br/>accepted rows)]
         X[(meta.rejected_rows)]
         subgraph dbt
             STG[staging<br/>latest file version,<br/>dedup, normalize]
@@ -46,17 +46,18 @@ flowchart LR
         end
     end
 
-    A & S --> P --> V
+    A & S --> B --> V
     V -- valid --> R
     V -- invalid --> X
-    P -. fingerprint .-> L
+    B -. fingerprint .-> L
     R --> STG --> LED --> INT --> FCT --> RPT
     X --> RPT
 ```
 
 | Layer | What happens | Key design choice |
 |---|---|---|
-| **Ingestion** (`src/fidc_lakehouse/ingest.py`) | Parse each file with the layout configured for its fund, validate every row (taxpayer-ID checksums, value and date rules, duplicates), load it in one transaction | SHA-256 **file ledger** makes ingestion idempotent; bad rows are quarantined with their reason and payload instead of failing the file |
+| **Bronze** (`spark_pipeline.py`) | Read every file with the layout configured for its fund, keeping each row as text with the file it came from, and fingerprint each file with its SHA-256 | Nothing is rejected at the door, so a rule can change and the silver tables can be rebuilt from bronze without asking the administrator to resend |
+| **Silver** (`spark_rules.py`) | Apply the quality gate: taxpayer-ID checksums, value and date rules, keys, duplicates. Accepted rows are typed; rejected rows keep their reason and original row | The rules are native Spark column expressions with no Python UDF, and they are written **once**: the Databricks pipeline and the local runner (`ingest.py`) call the same functions |
 | **Staging** (`dbt/models/staging`) | Keep only the latest version of each file, deduplicate installments and payments by their keys, normalize IDs | A corrected file re-sent under the same name **supersedes** the old one, with no manual cleanup, and a payment re-sent under a new name is never counted twice |
 | **Ledger** (`fct_installment_events`) | Every acquisition, payment and cancellation becomes an event with a `balance_delta` | The outstanding balance on any date is `sum(balance_delta)`, so past dates can be rebuilt exactly |
 | **Valuation** (`int_installment_*`) | Implied discount rate, present value on a 252 business-day basis, loss-provision bucket by days overdue | The B3 exchange calendar is precomputed with a running business-day counter, so business days between two dates is a subtraction and not a correlated subquery |
@@ -70,6 +71,9 @@ derives as a hash when the file has none. Keys are unique per fund. The full fie
 rules and known limits are in [`docs/data-contract.md`](docs/data-contract.md).
 
 ## Quickstart
+
+Prerequisites: Python 3.11+ and **Java 17 or 21** (Spark runs on the JVM; on macOS,
+`brew install openjdk@21`).
 
 ```bash
 git clone https://github.com/tecozu/fidc-receivables-lakehouse && cd fidc-receivables-lakehouse
@@ -113,7 +117,7 @@ net value = present value − present value × provision rate(days overdue, fund
 
 | Where | Check |
 |---|---|
-| Ingestion (Python) | CPF/CNPJ mod-11 checksums, positive face value, `0 < price ≤ face`, valid dates, `due > acquisition`, required keys, installment number, duplicates within a file (exact copies keep one row; rows that share an installment or transaction ID but differ are all rejected) |
+| Silver (Spark rules) | CPF/CNPJ mod-11 checksums, positive face value, `0 < price ≤ face`, valid dates, `due > acquisition`, required keys, installment number, duplicates within a file (exact copies keep one row; rows that share an installment or transaction ID but differ are all rejected) |
 | dbt generic tests | uniqueness/not-null on keys, accepted values, referential integrity, `non_negative`, row-level `expression_is_true` contracts |
 | dbt singular tests | **ledger reconciliation**: every snapshot's outstanding equals the ledger balance on that date · **pricing round-trip**: on the purchase date PV equals the price paid · **completeness**: no business day missing from the daily series |
 | Monitoring models | `rpt_ingestion_quality` (rejection rate and reasons per file), `rpt_orphan_settlements` (payments for installments the fund does not hold; warn-level test) |
@@ -129,18 +133,22 @@ the reference date can never be baked into a stale view.
 ```
 src/fidc_lakehouse/
   funds.yaml                 fund registry -> layout per event type
+  layouts.py                 file layouts (add one to onboard a new administrator)
+  spark_rules.py             the quality gate as native Spark expressions
+  spark_pipeline.py          bronze -> silver tables, rejected rows, file ledger (shared logic)
+  ingest.py                  local runner: Spark in local mode, results loaded into DuckDB
+  landing.py                 finding the landing files
   generate.py                seeded synthetic data (Faker), with injected errors
-  parsers.py                 layout registry (add a layout to onboard a new administrator)
-  validation.py              quality gate: row-level rules, shared by both engines
-  ingest.py                  local load into DuckDB: file ledger, transactional load
   business_calendar.py       B3 holidays (Easter-based rules) and business-day math
   pipeline.py / cli.py       daily run, backfill, demo
+docs/
+  data-contract.md           fields, keys and rules of the landing files
 dbt/
   seeds/                     funds, provision policy, B3 holidays
   models/staging|intermediate|marts
   macros/pricing.sql         252-day rate and present value
   tests/                     reconciliation, pricing round-trip, completeness
-tests/                       pytest: calendar, documents, generator, ingestion
+tests/                       pytest: rules (input -> expected verdict), local runner, generator, calendar
 ```
 
 ## Roadmap

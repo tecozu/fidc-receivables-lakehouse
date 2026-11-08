@@ -96,3 +96,16 @@ A missing or unreadable value counts as a failure of the rule that needs it, nev
 - A different file with the same name is a corrected version. Only the latest version of
   each file is used downstream.
 - Row position in a file is kept for tracing rejected rows. It is not part of any key.
+  A parallel reader has no line numbers, so the position orders the rows of a file by their
+  original content. It identifies a row within a file version, but it is not the line.
+- `file_id` is derived from the file's SHA-256, so the same bytes get the same ID in every
+  environment. It says nothing about age: the order of versions comes from `ingested_at`.
+
+## Layers
+
+| Layer | Schema (local / Databricks) | Content |
+|---|---|---|
+| Bronze | Parquet, `fidc_bronze` | Every row as text, with the file it came from |
+| Silver | `silver` / `fidc_silver` | Accepted rows, typed |
+| Quarantine | `meta` / `fidc_meta` | `rejected_rows` and `file_ledger` |
+| Gold | `marts` / `fidc_marts` | dbt models |
