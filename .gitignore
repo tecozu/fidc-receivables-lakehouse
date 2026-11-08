@@ -6,6 +6,10 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# Build and deployment artifacts
+dist/
+.databricks/
+
 # Data & warehouse (always regenerated from the seeded generator)
 data/
 *.duckdb

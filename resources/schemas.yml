@@ -1,0 +1,17 @@
+resources:
+  schemas:
+    landing_schema:
+      catalog_name: ${var.catalog}
+      name: fidc_landing
+      comment: Where the administrators' files arrive.
+    bronze_schema:
+      catalog_name: ${var.catalog}
+      name: fidc_bronze
+      comment: Every row of every file exactly as it arrived (text), plus file fingerprints.
+
+  volumes:
+    landing_volume:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.landing_schema.name}
+      name: landing
+      comment: "<FUND>/<event>/<event>_<YYYY-MM-DD>.csv"

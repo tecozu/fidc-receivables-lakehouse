@@ -1,0 +1,16 @@
+resources:
+  pipelines:
+    ingestion:
+      name: fidc_ingestion
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.bronze_schema.name}
+      serverless: true
+      libraries:
+        - file:
+            path: ../pipelines/bronze.py
+      environment:
+        dependencies:
+          - ../dist/*.whl
+      configuration:
+        fidc.funds: ${var.funds}
+        fidc.landing: /Volumes/${var.catalog}/${resources.schemas.landing_schema.name}/${resources.volumes.landing_volume.name}

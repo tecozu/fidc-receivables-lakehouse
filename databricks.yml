@@ -1,0 +1,34 @@
+# Deployment of the FIDC lakehouse to Databricks (Declarative Automation Bundles).
+# `databricks bundle deploy -t dev` makes the workspace match this folder.
+bundle:
+  name: fidc_lakehouse
+
+# The pipeline imports fidc_lakehouse (layouts, Spark rules), so the package is built
+# as a wheel and installed in the pipeline's environment.
+artifacts:
+  fidc_lakehouse:
+    type: whl
+    build: uv build --wheel
+    path: .
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds every schema of the project.
+    default: workspace
+  funds:
+    description: >
+      Funds this deployment processes, comma separated. One pipeline can handle all of
+      them; to isolate a fund, deploy a pipeline whose list has only that fund.
+    default: ALPHA,BETA
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    # Development mode prefixes resource names with [dev <user>] and pauses schedules,
+    # so a personal deployment never collides with a shared one.
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-59cd88f6-8e13.cloud.databricks.com
