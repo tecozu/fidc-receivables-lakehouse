@@ -11,6 +11,13 @@ clean-targets: ["target", "dbt_packages"]
 vars:
   # Reference date of the valuation. The pipeline always passes it explicitly.
   as_of_date: "2026-03-31"
+  # The funds to read. The runner passes the list from funds.yaml; this default only lets
+  # the project compile offline, and a test checks it stays equal to funds.yaml.
+  funds: [ALPHA, BETA]
+  # Databricks only: where the pipeline writes its per-fund tables (the dev bundle
+  # prefixes them, for example dev_<user>_fidc_silver).
+  silver_schema: fidc_silver
+  meta_schema: fidc_meta
 
 models:
   fidc_lakehouse:

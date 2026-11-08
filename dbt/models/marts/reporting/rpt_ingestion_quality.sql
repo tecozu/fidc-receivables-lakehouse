@@ -1,7 +1,7 @@
 -- Data-quality view of the landing zone: what arrived, what was rejected and why.
 with rejections as (
     select file_id, reason, count(*) as n
-    from {{ source('meta', 'rejected_rows') }}
+    from {{ silver_table('meta', 'rejected_rows') }}
     group by file_id, reason
 )
 

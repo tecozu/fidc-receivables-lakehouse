@@ -25,11 +25,12 @@ def run_dbt(args: list[str], as_of: date, db_path: Path) -> None:
     from dbt.cli.main import dbtRunner  # imported lazily: heavy import
 
     os.environ["FIDC_DUCKDB_PATH"] = str(db_path.resolve())
+    fund_codes = [fund.code for fund in config.load_funds()]
     cli_args = [
         *args,
         "--project-dir", str(config.DBT_DIR),
         "--profiles-dir", str(config.DBT_DIR),
-        "--vars", json.dumps({"as_of_date": as_of.isoformat()}),
+        "--vars", json.dumps({"as_of_date": as_of.isoformat(), "funds": fund_codes}),
     ]  # fmt: skip
     result = dbtRunner().invoke(cli_args)
     if not result.success:

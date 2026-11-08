@@ -16,4 +16,4 @@ select
         partition by fund_code, event_type, file_name
         order by ingested_at desc, file_id desc
     ) = 1 as is_latest_version
-from {{ source('meta', 'file_ledger') }}
+from {{ silver_table('meta', 'file_ledger') }}

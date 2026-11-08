@@ -4,7 +4,7 @@ with latest_files as (
 
 source as (
     select a.*, l.ingested_at
-    from {{ source('silver', 'acquisitions') }} a
+    from {{ silver_table('silver', 'acquisitions') }} a
     join latest_files l on l.file_id = a.file_id
 ),
 

@@ -70,6 +70,19 @@ is keyed by a transaction ID that the administrator supplies, or that the pipeli
 derives as a hash when the file has none. Keys are unique per fund. The full field list,
 rules and known limits are in [`docs/data-contract.md`](docs/data-contract.md).
 
+## Adding a fund
+
+1. Add it to `src/fidc_lakehouse/funds.yaml` with a layout per event. Use an existing layout
+   (`csv_br_v1`, `csv_br_v2`) or register a new one in `layouts.py` if the administrator's
+   format differs.
+2. Add its provision policy to `dbt/seeds/funds.csv` and its code to the default `funds`
+   list in `dbt/dbt_project.yml`. A test fails if these three lists disagree.
+3. Deploy (`databricks bundle deploy`). The pipeline creates the fund's bronze and silver
+   tables, empty until its first file arrives, and dbt reads them.
+4. The administrator drops files in `<landing>/<FUND>/<event>/`.
+
+No code changes: every table is created in a loop over the fund list.
+
 ## Quickstart
 
 Prerequisites: Python 3.11+ and **Java 17 or 21** (Spark runs on the JVM; on macOS,
