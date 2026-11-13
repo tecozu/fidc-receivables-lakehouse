@@ -21,6 +21,9 @@ variables:
       One pipeline can handle all of them; to isolate a fund, deploy a pipeline whose list
       has only that fund.
     default: "*"
+  warehouse_id:
+    description: SQL warehouse that runs the dbt task (the Free Edition has one 2X-Small).
+    default: 7bca809443b4daf4
 
 include:
   - resources/*.yml

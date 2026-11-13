@@ -1,0 +1,142 @@
+resources:
+  jobs:
+    daily:
+      name: fidc_daily
+      description: Load the files that arrived, then build the valuation for one date.
+      max_concurrent_runs: 1
+
+      # One parameter, so the same job calculates any date. The default is the day the
+      # run starts (UTC); a backfill passes its own date.
+      parameters:
+        - name: as_of_date
+          default: "{{job.start_time.iso_date}}"
+
+      # Weekday mornings. Shipped paused: a person turns it on when the project is live.
+      schedule:
+        quartz_cron_expression: "0 0 7 ? * MON-FRI"
+        timezone_id: America/Sao_Paulo
+        pause_status: PAUSED
+
+      # dbt runs on serverless compute, which needs an environment with the adapter.
+      environments:
+        - environment_key: dbt
+          spec:
+            environment_version: "6"
+            dependencies:
+              - dbt-databricks>=1.10,<2.0
+
+      tasks:
+        # 1. Bronze and silver: Auto Loader reads the new files, the Spark rules judge them.
+        - task_key: ingest
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.ingestion.id}
+
+        # 2. Gold: dbt builds the models and runs the tests, but only if ingest succeeded.
+        - task_key: dbt_build
+          depends_on:
+            - task_key: ingest
+          environment_key: dbt
+          dbt_task:
+            project_directory: ${workspace.file_path}/dbt
+            source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+            catalog: ${var.catalog}
+            schema: fidc
+            commands:
+              - >-
+                dbt build --vars '{"as_of_date": "{{job.parameters.as_of_date}}",
+                "silver_schema": "${resources.schemas.silver_schema.name}",
+                "meta_schema": "${resources.schemas.meta_schema.name}"}'
+
+    backfill:
+      name: fidc_backfill
+      description: Recalculate the daily valuation for every business day in a range.
+      max_concurrent_runs: 1
+
+      # The files are not loaded again: a backfill recalculates from what is already in
+      # silver. After a corrected file, run fidc_daily (or the pipeline) first.
+      parameters:
+        - name: start_date
+          default: "2026-01-05"
+        - name: end_date
+          default: "2026-01-09"
+
+      environments:
+        - environment_key: dbt
+          spec:
+            environment_version: "6"
+            dependencies:
+              - dbt-databricks>=1.10,<2.0
+
+      tasks:
+        # 1. Seeds, staging, ledger and dimensions: none of them depends on the date, so
+        #    they are built once. The date-dependent snapshot is left for the loop.
+        - task_key: rebuild_lineage
+          environment_key: dbt
+          dbt_task:
+            project_directory: ${workspace.file_path}/dbt
+            source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+            catalog: ${var.catalog}
+            schema: fidc
+            commands:
+              - >-
+                dbt seed --vars '{"silver_schema": "${resources.schemas.silver_schema.name}",
+                "meta_schema": "${resources.schemas.meta_schema.name}"}'
+              - >-
+                dbt run --select +fct_daily_portfolio --exclude fct_daily_portfolio
+                --vars '{"silver_schema": "${resources.schemas.silver_schema.name}",
+                "meta_schema": "${resources.schemas.meta_schema.name}"}'
+
+        # 2. The business days of the range, read from dim_calendar.
+        - task_key: make_dates
+          depends_on:
+            - task_key: rebuild_lineage
+          notebook_task:
+            notebook_path: ../jobs/make_dates.py
+            base_parameters:
+              start_date: "{{job.parameters.start_date}}"
+              end_date: "{{job.parameters.end_date}}"
+              catalog: ${var.catalog}
+              marts_schema: fidc_marts  # dbt writes the marts here (profile schema + "_marts")
+
+        # 3. One snapshot per date. Sequential on purpose: each run replaces only its own
+        #    date (replace_where), and one at a time keeps the table easy to reason about.
+        - task_key: snapshot_each_day
+          depends_on:
+            - task_key: make_dates
+          for_each_task:
+            inputs: "{{tasks.make_dates.values.dates}}"
+            concurrency: 1
+            task:
+              task_key: snapshot
+              environment_key: dbt
+              dbt_task:
+                project_directory: ${workspace.file_path}/dbt
+                source: WORKSPACE
+                warehouse_id: ${var.warehouse_id}
+                catalog: ${var.catalog}
+                schema: fidc
+                commands:
+                  - >-
+                    dbt run --select fct_daily_portfolio
+                    --vars '{"as_of_date": "{{input}}",
+                    "silver_schema": "${resources.schemas.silver_schema.name}",
+                    "meta_schema": "${resources.schemas.meta_schema.name}"}'
+
+        # 4. The whole test suite, once, after every snapshot exists.
+        - task_key: full_tests
+          depends_on:
+            - task_key: snapshot_each_day
+          environment_key: dbt
+          dbt_task:
+            project_directory: ${workspace.file_path}/dbt
+            source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+            catalog: ${var.catalog}
+            schema: fidc
+            commands:
+              - >-
+                dbt test --vars '{"as_of_date": "{{job.parameters.end_date}}",
+                "silver_schema": "${resources.schemas.silver_schema.name}",
+                "meta_schema": "${resources.schemas.meta_schema.name}"}'
