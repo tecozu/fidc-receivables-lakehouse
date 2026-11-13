@@ -109,6 +109,25 @@ fidc run --as-of 2026-03-31                         # daily run: ingest + dbt bu
 fidc backfill --start 2026-01-02 --end 2026-03-31   # rebuild every business day, then test
 ```
 
+## Running on Databricks
+
+The same code runs on Databricks. A [Declarative Automation Bundle](databricks.yml)
+describes everything, so `databricks bundle deploy` makes the workspace match this folder.
+
+| Piece | Where | What it does |
+|---|---|---|
+| Schemas and landing volume | `resources/schemas.yml` | Bronze, silver, meta and landing, in Unity Catalog |
+| Ingestion pipeline | `resources/pipeline.yml`, `pipelines/` | Lakeflow pipeline: Auto Loader into bronze, the Spark rules into silver, **one set of tables per fund** so a fund's files or failure never block another |
+| Daily job `fidc_daily` | `resources/jobs.yml` | `ingest`, then `dbt build` for one `as_of_date`. dbt only starts if ingestion succeeded. The weekday schedule ships **paused** |
+| Backfill job `fidc_backfill` | `resources/jobs.yml`, `jobs/make_dates.py` | Builds the lineage once, reads the business days from `dim_calendar`, builds one snapshot per day in a sequential loop, then runs every test |
+
+dbt reads the per-fund tables through one macro (`dbt/macros/silver.sql`), so the models
+are the same on DuckDB and on Databricks.
+
+**Status.** The pipeline and the daily job are deployed and verified against the local run
+(same installments, same totals). The backfill job validates but has not run on Databricks
+yet. Governance (column masks, grants) and a dashboard are not built.
+
 ## Valuation logic
 
 An installment with face value `F`, bought for price `P` with `n` business days to
@@ -154,6 +173,10 @@ src/fidc_lakehouse/
   generate.py                seeded synthetic data (Faker), with injected errors
   business_calendar.py       B3 holidays (Easter-based rules) and business-day math
   pipeline.py / cli.py       daily run, backfill, demo
+pipelines/                   Lakeflow pipeline code (bronze and silver tables, one set per fund)
+resources/                   bundle resources: schemas, pipeline, jobs
+jobs/make_dates.py           notebook that lists the business days for the backfill
+databricks.yml               bundle definition and deployment targets
 docs/
   data-contract.md           fields, keys and rules of the landing files
 dbt/
@@ -166,9 +189,11 @@ tests/                       pytest: rules (input -> expected verdict), local ru
 
 ## Roadmap
 
-- Object storage landing (S3/MinIO) with DuckDB `httpfs`
-- Orchestration with Airflow or Dagster (one asset per business day)
-- Port the warehouse to BigQuery (dbt adapter swap) and add a Looker Studio dashboard
+- Run and verify the backfill job on Databricks
+- Governance: column masks for taxpayer IDs, tags and grants for analysts
+- A dashboard on the marts, and alerts on job failure and rejection rate
+- A parity check between DuckDB and Databricks, and a deploy workflow from GitHub
+- Per-fund incremental dbt models, so one fund can be recalculated alone
 - Renegotiation events (term extension with a provision floor)
 
 ## License
