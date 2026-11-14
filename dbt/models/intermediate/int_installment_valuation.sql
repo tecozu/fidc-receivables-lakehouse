@@ -36,8 +36,12 @@ priced as (
 valued as (
     select
         *,
-        round({{ present_value_252('outstanding_amount', 'discount_rate', 'remaining_business_days') }}, 2)
-            as present_value
+        -- The discounting needs `power`, so it runs in double. It is rounded to cents once,
+        -- here, and from this point on money is exact decimal on every engine.
+        cast(
+            round({{ present_value_252('outstanding_amount', 'discount_rate', 'remaining_business_days') }}, 2)
+            as decimal(18, 2)
+        ) as present_value
     from priced
 ),
 
@@ -56,7 +60,10 @@ with_policy as (
 
 select
     *,
-    round(present_value * provision_rate, 2)                         as provision_amount,
-    present_value - round(present_value * provision_rate, 2)         as net_value,
+    -- Decimal times decimal is exact, and rounding half a cent up is the same on DuckDB and
+    -- Spark. (In double, a value like 20.005 is rounded differently by each engine.)
+    cast(round(present_value * provision_rate, 2) as decimal(18, 2))     as provision_amount,
+    cast(present_value - round(present_value * provision_rate, 2) as decimal(18, 2))
+                                                                         as net_value,
     case when days_overdue > 0 then 'OVERDUE' else 'CURRENT' end     as aging_status
 from with_policy

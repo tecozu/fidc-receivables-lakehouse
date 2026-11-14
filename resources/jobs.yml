@@ -157,10 +157,30 @@ resources:
                     "silver_schema": "${resources.schemas.silver_schema.name}",
                     "meta_schema": "${resources.schemas.meta_schema.name}"}'
 
-        # 4. The whole test suite, once, after every snapshot exists.
-        - task_key: full_tests
+        # 4. The reports are built from the snapshots, so they must be rebuilt after the
+        #    loop. Without this step they keep the last daily run's one day, and the tests
+        #    below pass on stale data (a parity check against DuckDB caught exactly that).
+        - task_key: refresh_reports
           depends_on:
             - task_key: snapshot_each_day
+          environment_key: dbt
+          dbt_task:
+            project_directory: ${workspace.file_path}/dbt
+            source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+            catalog: ${var.catalog}
+            schema: fidc
+            commands:
+              - >-
+                dbt run --select fct_daily_portfolio+ --exclude fct_daily_portfolio
+                --vars '{"as_of_date": "{{job.parameters.end_date}}",
+                "silver_schema": "${resources.schemas.silver_schema.name}",
+                "meta_schema": "${resources.schemas.meta_schema.name}"}'
+
+        # 5. The whole test suite, once, after the snapshots and the reports exist.
+        - task_key: full_tests
+          depends_on:
+            - task_key: refresh_reports
           environment_key: dbt
           dbt_task:
             project_directory: ${workspace.file_path}/dbt
