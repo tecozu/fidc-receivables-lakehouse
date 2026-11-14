@@ -44,15 +44,27 @@ resources:
             left: "{{tasks.check_calendar.values.is_business_day}}"
             right: "true"
 
-        # 3. Bronze and silver: Auto Loader reads the new files, the Spark rules judge them.
-        - task_key: ingest
+        # 3. Simulation of the administrator: bring the files dated up to as_of_date from the
+        #    archive to landing. In production the files arrive by themselves and this goes.
+        - task_key: deliver_files
           depends_on:
             - task_key: is_business_day
               outcome: "true"
+          notebook_task:
+            notebook_path: ../jobs/deliver_files.py
+            base_parameters:
+              as_of_date: "{{job.parameters.as_of_date}}"
+              archive_path: /Volumes/${var.catalog}/${resources.schemas.landing_schema.name}/${resources.volumes.archive_volume.name}
+              landing_path: /Volumes/${var.catalog}/${resources.schemas.landing_schema.name}/${resources.volumes.landing_volume.name}
+
+        # 4. Bronze and silver: Auto Loader reads the new files, the Spark rules judge them.
+        - task_key: ingest
+          depends_on:
+            - task_key: deliver_files
           pipeline_task:
             pipeline_id: ${resources.pipelines.ingestion.id}
 
-        # 4. Gold: dbt builds the models and runs the tests, but only if ingest succeeded.
+        # 5. Gold: dbt builds the models and runs the tests, but only if ingest succeeded.
         - task_key: dbt_build
           depends_on:
             - task_key: ingest

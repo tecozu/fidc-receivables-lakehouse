@@ -118,8 +118,13 @@ describes everything, so `databricks bundle deploy` makes the workspace match th
 |---|---|---|
 | Schemas and landing volume | `resources/schemas.yml` | Bronze, silver, meta and landing, in Unity Catalog |
 | Ingestion pipeline | `resources/pipeline.yml`, `pipelines/` | Lakeflow pipeline: Auto Loader into bronze, the Spark rules into silver, **one set of tables per fund** so a fund's files or failure never block another |
-| Daily job `fidc_daily` | `resources/jobs.yml` | `ingest`, then `dbt build` for one `as_of_date`. dbt only starts if ingestion succeeded. The weekday schedule ships **paused** |
+| Daily job `fidc_daily` | `resources/jobs.yml` | Checks that `as_of_date` is a business day (a weekend or holiday skips the rest and still succeeds), delivers the day's files, runs `ingest`, then `dbt build`. dbt only starts if ingestion succeeded. The weekday schedule ships **paused** |
 | Backfill job `fidc_backfill` | `resources/jobs.yml`, `jobs/make_dates.py` | Builds the lineage once, reads the business days from `dim_calendar`, builds one snapshot per day in a sequential loop, then runs every test |
+
+**The fund administrator is simulated.** The generated files wait in an `archive` volume, and
+the `deliver_files` task (`jobs/deliver_files.py`) copies those dated up to `as_of_date` into
+the landing volume, skipping files already there. In production the administrator sends files
+straight to landing and this step would be removed.
 
 dbt reads the per-fund tables through one macro (`dbt/macros/silver.sql`), so the models
 are the same on DuckDB and on Databricks.

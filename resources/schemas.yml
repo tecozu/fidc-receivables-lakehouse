@@ -23,3 +23,8 @@ resources:
       schema_name: ${resources.schemas.landing_schema.name}
       name: landing
       comment: "<FUND>/<event>/<event>_<YYYY-MM-DD>.csv"
+    archive_volume:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.landing_schema.name}
+      name: archive
+      comment: Simulation only. The administrator's outbox; deliver_files copies from here to landing.
