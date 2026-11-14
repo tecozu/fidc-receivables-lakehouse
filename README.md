@@ -124,9 +124,11 @@ describes everything, so `databricks bundle deploy` makes the workspace match th
 dbt reads the per-fund tables through one macro (`dbt/macros/silver.sql`), so the models
 are the same on DuckDB and on Databricks.
 
-**Status.** The pipeline and the daily job are deployed and verified against the local run
-(same installments, same totals). The backfill job validates but has not run on Databricks
-yet. Governance (column masks, grants) and a dashboard are not built.
+**Status.** The pipeline and both jobs are deployed and verified. The ingestion matches the
+local run (same installments, same totals). The daily job skips weekends and holidays (the
+run succeeds and nothing is written), and the backfill rebuilt five business days in about
+6 minutes (roughly 40 seconds per day), then passed the full test suite. Governance (column
+masks, grants) and a dashboard are not built.
 
 ## Valuation logic
 
