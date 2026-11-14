@@ -26,12 +26,33 @@ resources:
               - dbt-databricks>=1.10,<2.0
 
       tasks:
-        # 1. Bronze and silver: Auto Loader reads the new files, the Spark rules judge them.
+        # 1. Is as_of_date a business day? Read from dim_calendar, the table dbt builds.
+        - task_key: check_calendar
+          notebook_task:
+            notebook_path: ../jobs/check_calendar.py
+            base_parameters:
+              as_of_date: "{{job.parameters.as_of_date}}"
+              catalog: ${var.catalog}
+              marts_schema: fidc_marts  # dbt writes the marts here (profile schema + "_marts")
+
+        # 2. A weekend or holiday is normal, not an error: skip the rest instead of failing.
+        - task_key: is_business_day
+          depends_on:
+            - task_key: check_calendar
+          condition_task:
+            op: EQUAL_TO
+            left: "{{tasks.check_calendar.values.is_business_day}}"
+            right: "true"
+
+        # 3. Bronze and silver: Auto Loader reads the new files, the Spark rules judge them.
         - task_key: ingest
+          depends_on:
+            - task_key: is_business_day
+              outcome: "true"
           pipeline_task:
             pipeline_id: ${resources.pipelines.ingestion.id}
 
-        # 2. Gold: dbt builds the models and runs the tests, but only if ingest succeeded.
+        # 4. Gold: dbt builds the models and runs the tests, but only if ingest succeeded.
         - task_key: dbt_build
           depends_on:
             - task_key: ingest

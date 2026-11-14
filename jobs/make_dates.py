@@ -13,7 +13,8 @@ rows = spark.sql(
     f"""
     select cast(calendar_date as string) as day
     from {calendar}
-    where is_business_day and calendar_date between :start and :end
+    where is_business_day
+      and calendar_date between cast(:start as date) and cast(:end as date)
     order by calendar_date
     """,
     args={"start": start_date, "end": end_date},
