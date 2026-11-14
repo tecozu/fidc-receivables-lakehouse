@@ -41,6 +41,8 @@ packages = ["src/fidc_lakehouse"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Databricks injects these names into notebooks, so they are not undefined.
+builtins = ["dbutils", "spark"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

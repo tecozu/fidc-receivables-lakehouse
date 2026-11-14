@@ -2,8 +2,6 @@
 # Lists the business days of a range, read from the calendar table dbt builds
 # (dim_calendar, which comes from the b3_holidays seed). The backfill job loops over them.
 
-import json
-
 start_date = dbutils.widgets.get("start_date")
 end_date = dbutils.widgets.get("end_date")
 calendar = f"{dbutils.widgets.get('catalog')}.{dbutils.widgets.get('marts_schema')}.dim_calendar"
