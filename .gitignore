@@ -27,3 +27,6 @@ logs/
 .idea/
 .ipynb_checkpoints/
 dbt/.user.yml
+
+# macOS
+.DS_Store

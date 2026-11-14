@@ -102,7 +102,7 @@
             "name": "title",
             "multilineTextboxSpec": {
               "lines": [
-                "## FIDC fund overview",
+                "## FIDC fund overview\n",
                 "Pick a fund in the selector, or leave it empty to add all funds together. Latest day for the counters. Synthetic data."
               ]
             }
@@ -809,7 +809,7 @@
             "name": "q_title",
             "multilineTextboxSpec": {
               "lines": [
-                "## Data quality",
+                "## Data quality\n",
                 "What arrived, and what the quality gate rejected."
               ]
             }

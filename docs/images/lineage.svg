@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="614" viewBox="0 0 1760 614">
+<defs><marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#9ca3af"/></marker></defs>
+<rect width="1760" height="614" fill="#ffffff"/>
+<text x="25" y="40" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="bold" fill="#1f2937">Data lineage</text>
+<text x="25" y="66" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#6b7280">From the administrator's file to the dashboard. The dbt part is drawn from the project's manifest.</text>
+<rect x="17" y="82" width="186" height="514" rx="12" fill="#fdf3e3" opacity="0.55"/>
+<text x="110.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#b7791f" text-anchor="middle">Landing and bronze</text>
+<rect x="237" y="82" width="186" height="514" rx="12" fill="#f1f5f9" opacity="0.55"/>
+<text x="330.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#64748b" text-anchor="middle">Silver tables and seeds</text>
+<rect x="457" y="82" width="186" height="514" rx="12" fill="#eff6ff" opacity="0.55"/>
+<text x="550.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#1d4ed8" text-anchor="middle">Staging (dbt views)</text>
+<rect x="677" y="82" width="186" height="514" rx="12" fill="#fef9e7" opacity="0.55"/>
+<text x="770.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#a16207" text-anchor="middle">Dimensions and event ledger</text>
+<rect x="897" y="82" width="186" height="514" rx="12" fill="#f5f3ff" opacity="0.55"/>
+<text x="990.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#7c3aed" text-anchor="middle">Valuation (ephemeral)</text>
+<rect x="1117" y="82" width="186" height="514" rx="12" fill="#fef9e7" opacity="0.55"/>
+<text x="1210.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#a16207" text-anchor="middle">Daily snapshot</text>
+<rect x="1337" y="82" width="186" height="514" rx="12" fill="#ecfdf5" opacity="0.55"/>
+<text x="1430.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#047857" text-anchor="middle">Reports</text>
+<rect x="1557" y="82" width="186" height="514" rx="12" fill="#ecfdf5" opacity="0.55"/>
+<text x="1650.0" y="104" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#047857" text-anchor="middle">Serve</text>
+<path d="M635 319.0 C655 319.0 445 257.0 465 257.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M415 133.0 C440.0 133.0 440.0 257.0 465 257.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M415 257.0 C440.0 257.0 440.0 319.0 465 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 319.0 C655 319.0 445 381.0 465 381.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M415 505.0 C440.0 505.0 440.0 381.0 465 381.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M855 443.0 C1100.0 443.0 1100.0 319.0 1345 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M1295 319.0 C1320.0 319.0 1320.0 319.0 1345 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 257.0 C990.0 257.0 990.0 257.0 1345 257.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 381.0 C990.0 381.0 990.0 257.0 1345 257.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 319.0 C990.0 319.0 990.0 381.0 1345 381.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M415 443.0 C880.0 443.0 880.0 381.0 1345 381.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 257.0 C660.0 257.0 660.0 381.0 685 381.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 381.0 C660.0 381.0 660.0 381.0 685 381.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M415 195.0 C550.0 195.0 550.0 319.0 685 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M1075 350.0 C1100.0 350.0 1100.0 319.0 1125 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 257.0 C660.0 257.0 660.0 257.0 685 257.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M415 319.0 C550.0 319.0 550.0 443.0 685 443.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M635 257.0 C660.0 257.0 660.0 195.0 685 195.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M855 319.0 C880.0 319.0 880.0 350.0 905 350.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M855 443.0 C880.0 443.0 880.0 350.0 905 350.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M1075 288.0 C1095 288.0 885 350.0 905 350.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M415 381.0 C660.0 381.0 660.0 350.0 905 350.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M855 257.0 C880.0 257.0 880.0 288.0 905 288.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M855 381.0 C880.0 381.0 880.0 288.0 905 288.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M195 319.0 C220.0 319.0 220.0 133.0 245 133.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M195 319.0 C220.0 319.0 220.0 505.0 245 505.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M195 319.0 C220.0 319.0 220.0 257.0 245 257.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M195 319.0 C220.0 319.0 220.0 443.0 245 443.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M1515 319.0 C1540.0 319.0 1540.0 319.0 1565 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M1295 319.0 C1430.0 319.0 1430.0 319.0 1565 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M855 381.0 C1210.0 381.0 1210.0 319.0 1565 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<path d="M1515 381.0 C1540.0 381.0 1540.0 319.0 1565 319.0" fill="none" stroke="#9ca3af" stroke-width="1.6" opacity="0.85" marker-end="url(#head)"/>
+<rect x="465" y="234.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.8"/>
+<text x="475" y="254.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">stg_acquisitions</text>
+<text x="475" y="270.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">view</text>
+<rect x="465" y="296.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.8"/>
+<text x="475" y="316.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">stg_file_ledger</text>
+<text x="475" y="332.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">view</text>
+<rect x="465" y="358.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#1d4ed8" stroke-width="1.8"/>
+<text x="475" y="378.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">stg_settlements</text>
+<text x="475" y="394.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">view</text>
+<rect x="1345" y="296.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#047857" stroke-width="1.8"/>
+<text x="1355" y="316.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">rpt_fund_daily_summary</text>
+<text x="1355" y="332.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="1345" y="234.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#047857" stroke-width="1.8"/>
+<text x="1355" y="254.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">rpt_orphan_settlements</text>
+<text x="1355" y="270.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="1345" y="358.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#047857" stroke-width="1.8"/>
+<text x="1355" y="378.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">rpt_ingestion_quality</text>
+<text x="1355" y="394.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="685" y="358.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#a16207" stroke-width="1.8"/>
+<text x="695" y="378.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">fct_installment_events</text>
+<text x="695" y="394.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="685" y="296.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#a16207" stroke-width="1.8"/>
+<text x="695" y="316.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">dim_calendar</text>
+<text x="695" y="332.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="1125" y="296.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#a16207" stroke-width="1.8"/>
+<text x="1135" y="316.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">fct_daily_portfolio</text>
+<text x="1135" y="332.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">incremental</text>
+<rect x="685" y="234.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#a16207" stroke-width="1.8"/>
+<text x="695" y="254.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">dim_installment</text>
+<text x="695" y="270.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="685" y="420.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#a16207" stroke-width="1.8"/>
+<text x="695" y="440.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">dim_fund</text>
+<text x="695" y="456.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="685" y="172.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#a16207" stroke-width="1.8"/>
+<text x="695" y="192.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">dim_counterparty</text>
+<text x="695" y="208.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">table</text>
+<rect x="905" y="327.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#7c3aed" stroke-width="1.8" stroke-dasharray="5 4"/>
+<text x="915" y="347.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">int_installment_valuation</text>
+<text x="915" y="363.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">ephemeral</text>
+<rect x="905" y="265.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#7c3aed" stroke-width="1.8" stroke-dasharray="5 4"/>
+<text x="915" y="285.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">int_installment_position</text>
+<text x="915" y="301.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">ephemeral</text>
+<rect x="245" y="296.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+<text x="255" y="316.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">funds</text>
+<text x="255" y="332.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">seed</text>
+<rect x="245" y="358.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+<text x="255" y="378.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">provision_buckets</text>
+<text x="255" y="394.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">seed</text>
+<rect x="245" y="172.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+<text x="255" y="192.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">b3_holidays</text>
+<text x="255" y="208.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">seed</text>
+<rect x="245" y="110.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+<text x="255" y="130.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">acquisitions</text>
+<text x="255" y="146.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">silver table</text>
+<rect x="245" y="482.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+<text x="255" y="502.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">settlements</text>
+<text x="255" y="518.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">silver table</text>
+<rect x="245" y="234.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+<text x="255" y="254.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">file_ledger</text>
+<text x="255" y="270.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">silver table</text>
+<rect x="245" y="420.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#64748b" stroke-width="1.8"/>
+<text x="255" y="440.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">rejected_rows</text>
+<text x="255" y="456.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">silver table</text>
+<rect x="25" y="296.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#b7791f" stroke-width="1.8"/>
+<text x="35" y="316.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">Landing files &gt; bronze</text>
+<text x="35" y="332.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">Auto Loader, rows as text</text>
+<rect x="1565" y="296.0" width="170" height="46" rx="9" fill="#ffffff" stroke="#047857" stroke-width="1.8"/>
+<text x="1575" y="316.0" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1f2937">AI/BI dashboard</text>
+<text x="1575" y="332.0" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#6b7280">fund selector</text>
+<text x="25" y="592" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">Dashed boxes are ephemeral: dbt compiles them into the daily snapshot instead of storing them.</text>
+</svg>

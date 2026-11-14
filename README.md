@@ -21,38 +21,11 @@ rows that test the quality gate.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Landing["Landing zone (daily files)"]
-        A[acquisitions_YYYY-MM-DD.csv]
-        S[settlements_YYYY-MM-DD.csv]
-    end
+![Architecture: from the administrator's file to the dashboard](docs/images/architecture-draw.png)
 
-    subgraph Spark["Spark (local mode here, Lakeflow on Databricks)"]
-        B[Bronze<br/>every row as text<br/>+ file fingerprint]
-        V{Quality gate<br/>native Spark rules}
-        L[(meta.file_ledger<br/>SHA-256)]
-    end
-
-    subgraph DuckDB["DuckDB warehouse"]
-        R[(silver.*<br/>accepted rows)]
-        X[(meta.rejected_rows)]
-        subgraph dbt
-            STG[staging<br/>latest file version,<br/>dedup, normalize]
-            LED[fct_installment_events<br/>event ledger]
-            INT[position + valuation<br/>as of date]
-            FCT[fct_daily_portfolio<br/>incremental by date]
-            RPT[rpt_fund_daily_summary<br/>rpt_ingestion_quality<br/>rpt_orphan_settlements]
-        end
-    end
-
-    A & S --> B --> V
-    V -- valid --> R
-    V -- invalid --> X
-    B -. fingerprint .-> L
-    R --> STG --> LED --> INT --> FCT --> RPT
-    X --> RPT
-```
+Solid arrows are the daily flow. The dashed red path is the rows the quality gate rejects, which
+feed the data-quality report. The dotted arrow is the parity check between the local engine and
+Databricks. The administrator is simulated in this demo.
 
 | Layer | What happens | Key design choice |
 |---|---|---|
@@ -62,6 +35,12 @@ flowchart LR
 | **Ledger** (`fct_installment_events`) | Every acquisition, payment and cancellation becomes an event with a `balance_delta` | The outstanding balance on any date is `sum(balance_delta)`, so past dates can be rebuilt exactly |
 | **Valuation** (`int_installment_*`) | Implied discount rate, present value on a 252 business-day basis, loss-provision bucket by days overdue | The B3 exchange calendar is precomputed with a running business-day counter, so business days between two dates is a subtraction and not a correlated subquery |
 | **Snapshot** (`fct_daily_portfolio`) | One row per open installment per day | Incremental `delete+insert` on `as_of_date`: rerunning a date **replaces** its snapshot, which makes reprocessing safe |
+
+The dbt part of this graph is drawn from the project's manifest, so it follows the models.
+To refresh it after a change: `dbt parse --project-dir dbt --profiles-dir dbt`, then
+`python scripts/draw_lineage.py`.
+
+![Data lineage, from landing files to the dashboard](docs/images/lineage.svg)
 
 **Keys.** The grain is the installment (*parcela*). An acquisition row is keyed by the
 administrator's installment number (*nosso número*), and a payment points to it through
@@ -130,6 +109,8 @@ straight to landing and this step would be removed.
 dbt reads the per-fund tables through one macro (`dbt/macros/silver.sql`), so the models
 are the same on DuckDB and on Databricks.
 
+![Fund overview dashboard, one fund at a time (synthetic data)](docs/images/dashboard-overview.png)
+
 **Status.** The pipeline and both jobs are deployed and verified. The daily job checks the
 calendar (a weekend or holiday skips the rest and still succeeds), delivers the day's files,
 ingests and builds. The backfill rebuilt the whole first quarter (61 business days) in about
@@ -196,10 +177,13 @@ src/fidc_lakehouse/
   pipeline.py / cli.py       daily run, backfill, demo
 pipelines/                   Lakeflow pipeline code (bronze and silver tables, one set per fund)
 resources/                   bundle resources: schemas, pipeline, jobs
-jobs/make_dates.py           notebook that lists the business days for the backfill
+jobs/                        notebooks the jobs run: check_calendar, deliver_files, make_dates
+dashboards/                  the AI/BI dashboard as code (.lvdash.json)
+scripts/                     check_parity (DuckDB vs Databricks), draw_lineage, build_wheel, check_prod_sql
 databricks.yml               bundle definition and deployment targets
 docs/
   data-contract.md           fields, keys and rules of the landing files
+  images/                    architecture, lineage and dashboard pictures used in this README
 dbt/
   seeds/                     funds, provision policy, B3 holidays
   models/staging|intermediate|marts
