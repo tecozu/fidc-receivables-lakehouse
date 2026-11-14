@@ -1,0 +1,9 @@
+resources:
+  dashboards:
+    overview:
+      display_name: FIDC daily valuation
+      file_path: ../dashboards/fidc.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      # The queries in the file name tables without a catalog or schema.
+      dataset_catalog: ${var.catalog}
+      dataset_schema: fidc_marts

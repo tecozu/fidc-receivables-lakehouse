@@ -1,0 +1,1040 @@
+{
+  "datasets": [
+    {
+      "name": "valuation_long",
+      "displayName": "Valuation by day",
+      "queryLines": [
+        "select as_of_date, fund_code, 'Present value (VP)' as measure, present_value as amount from rpt_fund_daily_summary\n",
+        "union all\n",
+        "select as_of_date, fund_code, 'Loss provision (PDD)', provision_amount from rpt_fund_daily_summary\n",
+        "union all\n",
+        "select as_of_date, fund_code, 'Net asset value (VPL)', net_portfolio_value from rpt_fund_daily_summary\n"
+      ]
+    },
+    {
+      "name": "latest_by_fund",
+      "displayName": "Latest day",
+      "queryLines": [
+        "select * from rpt_fund_daily_summary\n",
+        "where as_of_date = (select max(as_of_date) from rpt_fund_daily_summary)\n"
+      ]
+    },
+    {
+      "name": "payments_total",
+      "displayName": "Payments received to date",
+      "queryLines": [
+        "select fund_code, sum(cash_flow) as payments_received\n",
+        "from fct_installment_events where event_type in ('FULL', 'PARTIAL')\n",
+        "group by fund_code\n"
+      ]
+    },
+    {
+      "name": "payments_by_day",
+      "displayName": "Payments by day",
+      "queryLines": [
+        "select event_date, fund_code, event_type, sum(cash_flow) as amount_received\n",
+        "from fct_installment_events where event_type in ('FULL', 'PARTIAL')\n",
+        "group by event_date, fund_code, event_type\n"
+      ]
+    },
+    {
+      "name": "aging_bands",
+      "displayName": "Aging bands (latest day)",
+      "queryLines": [
+        "select fund_code,\n",
+        "       case when days_overdue <= 0 then '0. Current'\n",
+        "            when days_overdue <= 30 then '1. 1-30 days'\n",
+        "            when days_overdue <= 60 then '2. 31-60 days'\n",
+        "            when days_overdue <= 90 then '3. 61-90 days'\n",
+        "            else '4. Over 90 days' end as aging_band,\n",
+        "       sum(outstanding_amount) as outstanding_amount, count(*) as receivables\n",
+        "from fct_daily_portfolio where as_of_date = (select max(as_of_date) from fct_daily_portfolio)\n",
+        "group by 1, 2\n"
+      ]
+    },
+    {
+      "name": "provision_by_bucket",
+      "displayName": "Provision by bucket (latest day)",
+      "queryLines": [
+        "select fund_code, provision_bucket, sum(provision_amount) as provision_amount,\n",
+        "       count(*) as receivables\n",
+        "from fct_daily_portfolio where as_of_date = (select max(as_of_date) from fct_daily_portfolio)\n",
+        "group by fund_code, provision_bucket\n"
+      ]
+    },
+    {
+      "name": "maturity",
+      "displayName": "Receivables by due month (latest day)",
+      "queryLines": [
+        "select fund_code, date_trunc('month', due_date) as due_month,\n",
+        "       sum(outstanding_amount) as outstanding_amount, count(*) as receivables\n",
+        "from fct_daily_portfolio where as_of_date = (select max(as_of_date) from fct_daily_portfolio)\n",
+        "group by fund_code, date_trunc('month', due_date)\n"
+      ]
+    },
+    {
+      "name": "rejections",
+      "displayName": "Rejections by file",
+      "queryLines": [
+        "select file_date, fund_code, event_type, file_name, row_count, rejected_count,\n",
+        "       rejection_rate, rejection_reasons\n",
+        "from rpt_ingestion_quality where is_latest_version\n"
+      ]
+    },
+    {
+      "name": "rejections_by_day",
+      "displayName": "Rejections by day",
+      "queryLines": [
+        "select file_date, fund_code, sum(rejected_count) as rejected_rows, sum(row_count) as total_rows\n",
+        "from rpt_ingestion_quality where is_latest_version\n",
+        "group by file_date, fund_code\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "Fund overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## FIDC fund overview",
+                "Pick a fund in the selector, or leave it empty to add all funds together. Latest day for the counters. Synthetic data."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "fund_filter",
+            "queries": [
+              {
+                "name": "valuation_long_fund",
+                "query": {
+                  "datasetName": "valuation_long",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "latest_by_fund_fund",
+                "query": {
+                  "datasetName": "latest_by_fund",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "payments_total_fund",
+                "query": {
+                  "datasetName": "payments_total",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "payments_by_day_fund",
+                "query": {
+                  "datasetName": "payments_by_day",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "aging_bands_fund",
+                "query": {
+                  "datasetName": "aging_bands",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "provision_by_bucket_fund",
+                "query": {
+                  "datasetName": "provision_by_bucket",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "maturity_fund",
+                "query": {
+                  "datasetName": "maturity",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "valuation_long_fund"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "latest_by_fund_fund"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "payments_total_fund"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "payments_by_day_fund"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "aging_bands_fund"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "provision_by_bucket_fund"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "maturity_fund"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Fund (empty = all)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_vp",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_by_fund",
+                  "fields": [
+                    {
+                      "name": "sum(present_value)",
+                      "expression": "SUM(`present_value`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(present_value)",
+                  "displayName": "Present value (VP)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Present value (VP)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_pdd",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_by_fund",
+                  "fields": [
+                    {
+                      "name": "sum(provision_amount)",
+                      "expression": "SUM(`provision_amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(provision_amount)",
+                  "displayName": "Loss provision (PDD)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Loss provision (PDD)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_vpl",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_by_fund",
+                  "fields": [
+                    {
+                      "name": "sum(net_portfolio_value)",
+                      "expression": "SUM(`net_portfolio_value`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(net_portfolio_value)",
+                  "displayName": "Net asset value (VPL)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net asset value (VPL)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_out",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_by_fund",
+                  "fields": [
+                    {
+                      "name": "sum(outstanding_amount)",
+                      "expression": "SUM(`outstanding_amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(outstanding_amount)",
+                  "displayName": "Outstanding receivables"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Outstanding receivables"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_open",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_by_fund",
+                  "fields": [
+                    {
+                      "name": "sum(open_receivables)",
+                      "expression": "SUM(`open_receivables`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(open_receivables)",
+                  "displayName": "Open receivables (count)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Open receivables (count)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 5,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_paid",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "payments_total",
+                  "fields": [
+                    {
+                      "name": "sum(payments_received)",
+                      "expression": "SUM(`payments_received`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(payments_received)",
+                  "displayName": "Payments received to date"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Payments received to date"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 5,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "valuation_line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "valuation_long",
+                  "fields": [
+                    {
+                      "name": "as_of_date",
+                      "expression": "`as_of_date`"
+                    },
+                    {
+                      "name": "sum(amount)",
+                      "expression": "SUM(`amount`)"
+                    },
+                    {
+                      "name": "measure",
+                      "expression": "`measure`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "as_of_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "as of date"
+                },
+                "y": {
+                  "fieldName": "sum(amount)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Amount"
+                },
+                "color": {
+                  "fieldName": "measure",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "measure"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Valuation by day"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "aging_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "aging_bands",
+                  "fields": [
+                    {
+                      "name": "aging_band",
+                      "expression": "`aging_band`"
+                    },
+                    {
+                      "name": "sum(outstanding_amount)",
+                      "expression": "SUM(`outstanding_amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "aging_band",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "aging band"
+                },
+                "y": {
+                  "fieldName": "sum(outstanding_amount)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Outstanding"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Receivables by age (days overdue)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "prov_bucket",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "provision_by_bucket",
+                  "fields": [
+                    {
+                      "name": "provision_bucket",
+                      "expression": "`provision_bucket`"
+                    },
+                    {
+                      "name": "sum(provision_amount)",
+                      "expression": "SUM(`provision_amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "provision_bucket",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "provision bucket"
+                },
+                "y": {
+                  "fieldName": "sum(provision_amount)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Provision"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Provision (PDD) by bucket"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 14,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "payments_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "payments_by_day",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "sum(amount_received)",
+                      "expression": "SUM(`amount_received`)"
+                    },
+                    {
+                      "name": "event_type",
+                      "expression": "`event_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "event date"
+                },
+                "y": {
+                  "fieldName": "sum(amount_received)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Received"
+                },
+                "color": {
+                  "fieldName": "event_type",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "event type"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Payments received by day"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 20,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "maturity_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "maturity",
+                  "fields": [
+                    {
+                      "name": "due_month",
+                      "expression": "`due_month`"
+                    },
+                    {
+                      "name": "sum(outstanding_amount)",
+                      "expression": "SUM(`outstanding_amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "due_month",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "due month"
+                },
+                "y": {
+                  "fieldName": "sum(outstanding_amount)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Outstanding"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Expected payments by due month"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 20,
+            "width": 3,
+            "height": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "quality",
+      "displayName": "Data quality",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "q_title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Data quality",
+                "What arrived, and what the quality gate rejected."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "q_fund_filter",
+            "queries": [
+              {
+                "name": "rejections_fund",
+                "query": {
+                  "datasetName": "rejections",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "rejections_by_day_fund",
+                "query": {
+                  "datasetName": "rejections_by_day",
+                  "fields": [
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "rejections_fund"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "Fund",
+                    "queryName": "rejections_by_day_fund"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Fund (empty = all)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "rej_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "rejections_by_day",
+                  "fields": [
+                    {
+                      "name": "file_date",
+                      "expression": "`file_date`"
+                    },
+                    {
+                      "name": "sum(rejected_rows)",
+                      "expression": "SUM(`rejected_rows`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "file_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "file date"
+                },
+                "y": {
+                  "fieldName": "sum(rejected_rows)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Rejected rows"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Rejected rows per file date"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "rej_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "rejections",
+                  "fields": [
+                    {
+                      "name": "file_date",
+                      "expression": "`file_date`"
+                    },
+                    {
+                      "name": "fund_code",
+                      "expression": "`fund_code`"
+                    },
+                    {
+                      "name": "event_type",
+                      "expression": "`event_type`"
+                    },
+                    {
+                      "name": "file_name",
+                      "expression": "`file_name`"
+                    },
+                    {
+                      "name": "row_count",
+                      "expression": "`row_count`"
+                    },
+                    {
+                      "name": "rejected_count",
+                      "expression": "`rejected_count`"
+                    },
+                    {
+                      "name": "rejection_rate",
+                      "expression": "`rejection_rate`"
+                    },
+                    {
+                      "name": "rejection_reasons",
+                      "expression": "`rejection_reasons`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "file_date",
+                    "displayName": "file date"
+                  },
+                  {
+                    "fieldName": "fund_code",
+                    "displayName": "fund code"
+                  },
+                  {
+                    "fieldName": "event_type",
+                    "displayName": "event type"
+                  },
+                  {
+                    "fieldName": "file_name",
+                    "displayName": "file name"
+                  },
+                  {
+                    "fieldName": "row_count",
+                    "displayName": "row count"
+                  },
+                  {
+                    "fieldName": "rejected_count",
+                    "displayName": "rejected count"
+                  },
+                  {
+                    "fieldName": "rejection_rate",
+                    "displayName": "rejection rate"
+                  },
+                  {
+                    "fieldName": "rejection_reasons",
+                    "displayName": "rejection reasons"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Files with their rejections"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 6,
+            "height": 8
+          }
+        }
+      ]
+    }
+  ]
+}

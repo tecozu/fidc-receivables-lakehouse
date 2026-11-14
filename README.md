@@ -120,6 +120,7 @@ describes everything, so `databricks bundle deploy` makes the workspace match th
 | Ingestion pipeline | `resources/pipeline.yml`, `pipelines/` | Lakeflow pipeline: Auto Loader into bronze, the Spark rules into silver, **one set of tables per fund** so a fund's files or failure never block another |
 | Daily job `fidc_daily` | `resources/jobs.yml` | Checks that `as_of_date` is a business day (a weekend or holiday skips the rest and still succeeds), delivers the day's files, runs `ingest`, then `dbt build`. dbt only starts if ingestion succeeded. The weekday schedule ships **paused** |
 | Backfill job `fidc_backfill` | `resources/jobs.yml`, `jobs/make_dates.py` | Builds the lineage once, reads the business days from `dim_calendar`, builds one snapshot per day in a sequential loop, then runs every test |
+| Dashboard `FIDC daily valuation` | `resources/dashboard.yml`, `dashboards/fidc.lvdash.json` | AI/BI dashboard with a fund selector: VP (present value), PDD (loss provision), VPL (net asset value), receivables by age and due month, payments received, and a data-quality page. Defined as code in the bundle |
 
 **The fund administrator is simulated.** The generated files wait in an `archive` volume, and
 the `deliver_files` task (`jobs/deliver_files.py`) copies those dated up to `as_of_date` into
@@ -129,11 +130,24 @@ straight to landing and this step would be removed.
 dbt reads the per-fund tables through one macro (`dbt/macros/silver.sql`), so the models
 are the same on DuckDB and on Databricks.
 
-**Status.** The pipeline and both jobs are deployed and verified. The ingestion matches the
-local run (same installments, same totals). The daily job skips weekends and holidays (the
-run succeeds and nothing is written), and the backfill rebuilt five business days in about
-6 minutes (roughly 40 seconds per day), then passed the full test suite. Governance (column
-masks, grants) and a dashboard are not built.
+**Status.** The pipeline and both jobs are deployed and verified. The daily job checks the
+calendar (a weekend or holiday skips the rest and still succeeds), delivers the day's files,
+ingests and builds. The backfill rebuilt the whole first quarter (61 business days) in about
+47 minutes and passed the full test suite. Governance (column masks, grants) and a dashboard
+are not built.
+
+**What would change in production.** The data here is synthetic. With real data, taxpayer IDs
+(`debtor_doc`, `seller_doc`, `counterparty_doc`) would get Unity Catalog column masks and a `pii`
+tag, analysts would be granted `SELECT` on the marts schema only, and nobody outside the
+engineering group would read bronze, silver or the rejected rows (`payload` holds whole raw rows).
+The job identity that runs dbt must be allowed to see the real values, or aggregates such as
+`count(distinct debtor_doc)` would count masked ones.
+
+**Parity between engines.** `scripts/check_parity.py` compares `rpt_fund_daily_summary` from
+DuckDB and from Databricks row by row (counts exactly, money to one cent, ratios with a small
+relative tolerance). For the 61 days of the sample quarter, all 122 rows match. Its first
+run found 30 differences: the provision was rounded to cents in floating point, and the two
+engines round a half-cent differently. Money is now `decimal(18,2)` from the rounding on.
 
 ## Valuation logic
 
@@ -198,8 +212,8 @@ tests/                       pytest: rules (input -> expected verdict), local ru
 
 - Run and verify the backfill job on Databricks
 - Governance: column masks for taxpayer IDs, tags and grants for analysts
-- A dashboard on the marts, and alerts on job failure and rejection rate
-- A parity check between DuckDB and Databricks, and a deploy workflow from GitHub
+- Alerts on job failure and on the rejection rate
+- A deploy workflow from GitHub, and a `prod` target
 - Per-fund incremental dbt models, so one fund can be recalculated alone
 - Renegotiation events (term extension with a provision floor)
 
