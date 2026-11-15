@@ -192,14 +192,23 @@ dbt/
 tests/                       pytest: rules (input -> expected verdict), local runner, generator, calendar
 ```
 
-## Roadmap
+## Next steps
 
-- Run and verify the backfill job on Databricks
-- Governance: column masks for taxpayer IDs, tags and grants for analysts
-- Alerts on job failure and on the rejection rate
-- A deploy workflow from GitHub, and a `prod` target
-- Per-fund incremental dbt models, so one fund can be recalculated alone
-- Renegotiation events (term extension with a provision floor)
+This is a complete study and portfolio project: it runs end to end on Databricks and on a laptop.
+It is not built for production. What would come next, roughly in order:
+
+- **Deployment.** A `prod` target and a GitHub Actions workflow that deploys it. `databricks bundle
+  validate` needs credentials, so CI would need a secret (a token, or a service principal with OIDC on
+  a paid workspace). The dbt marts schema would also need a target prefix, so dev and prod never write
+  to the same tables.
+- **Governance.** Column masks and a `pii` tag for taxpayer IDs, `SELECT` grants on the marts only, and
+  no analyst access to bronze, silver or the rejected rows.
+- **Alerts.** Email on job failure, and an alert on the rejection rate.
+- **Scheduling.** Turn on the weekday schedule of `fidc_daily`, which ships paused.
+- **Failure isolation.** Test what happens when one fund's branch fails during execution, and whether
+  the other funds still finish.
+- **Per-fund incremental models**, so one fund can be recalculated alone.
+- **Renegotiation events** (term extension with a provision floor).
 
 ## License
 
